@@ -23,25 +23,102 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Système de Gestion Electronique de Documents (GED) pour les Ressources Humaines - Application NestJS avec authentification JWT, PostgreSQL et MongoDB.
 
-## Project setup
+## Prérequis
+
+- Node.js 20+
+- Docker et Docker Compose
+- npm ou yarn
+
+## Configuration
+
+1. Créez un fichier `.env` à la racine du projet (voir `.env.example` pour les variables nécessaires)
+
+2. Variables d'environnement requises :
+   - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+   - `MONGO_URI`, `MONGO_DB`
+   - `JWT_SECRET`, `JWT_EXPIRES_IN`
+   - `PORT` (optionnel, défaut: 3000)
+
+## Installation et démarrage avec Docker
+
+### Démarrage complet (application + bases de données)
+
+```bash
+# Construire et démarrer tous les services
+docker-compose up -d
+
+# Voir les logs
+docker-compose logs -f app
+
+# Arrêter les services
+docker-compose down
+
+# Arrêter et supprimer les volumes (⚠️ supprime les données)
+docker-compose down -v
+```
+
+### Développement (bases de données uniquement)
+
+```bash
+# Démarrer uniquement PostgreSQL et MongoDB
+docker-compose -f docker-compose.dev.yml up -d
+
+# L'application peut être lancée localement avec npm run start:dev
+```
+
+## Installation locale (sans Docker)
 
 ```bash
 $ npm install
 ```
 
-## Compile and run the project
+## Compilation et exécution
+
+### Avec Docker
 
 ```bash
-# development
-$ npm run start
+# Mode développement (avec hot-reload)
+docker-compose up --build
 
-# watch mode
+# Mode production
+docker-compose -f docker-compose.yml up -d
+```
+
+### Sans Docker
+
+```bash
+# Développement
 $ npm run start:dev
 
-# production mode
+# Production
+$ npm run build
 $ npm run start:prod
+```
+
+## Commandes Docker utiles
+
+```bash
+# Reconstruire l'image
+docker-compose build
+
+# Redémarrer un service spécifique
+docker-compose restart app
+
+# Accéder au shell du conteneur
+docker-compose exec app sh
+
+# Voir les logs d'un service
+docker-compose logs -f postgres
+docker-compose logs -f mongodb
+docker-compose logs -f app
+
+# Arrêter tous les services
+docker-compose stop
+
+# Supprimer tous les conteneurs et volumes
+docker-compose down -v
 ```
 
 ## Run tests
