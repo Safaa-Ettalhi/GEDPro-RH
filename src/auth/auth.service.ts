@@ -10,6 +10,7 @@ import { Session, SessionDocument } from './schemas/session.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { Role } from '../common/enums/role.enum';
 
 @Injectable()
 export class AuthService {
@@ -35,7 +36,7 @@ export class AuthService {
     const user = this.userRepository.create({
       name: createUserDto.name,
       email: createUserDto.email,
-      role: createUserDto.role,
+      role: createUserDto.role || Role.USER,
       password: hashedPassword,
     });
 
@@ -46,44 +47,59 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const user = await this.userRepository.findOne({
-      where: { email: loginDto.email },
-    });
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email: loginDto.email },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect!');
+      if (!user) {
+        throw new UnauthorizedException('Email ou mot de passe incorrect!');
+      }
+
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.password,
+      );
+
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Email ou mot de passe incorrect!');
+      }
+
+      const payload: JwtPayload = {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      };
+
+      const accessToken = this.jwtService.sign(payload);
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      try {
+        await this.sessionModel.create({
+          userId: user.id,
+          token: accessToken,
+          expiresAt,
+        });
+      } catch (sessionError) {
+        // Si la création de session échoue, on continue quand même
+        console.error('Erreur lors de la création de session:', sessionError);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, ...userWithoutPassword } = user;
+      return {
+        accessToken,
+        user: userWithoutPassword,
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      console.error('Erreur lors du login:', error);
+      throw new UnauthorizedException('Erreur lors de la connexion');
     }
-
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect!');
-    }
-
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-    };
-
-    const accessToken = this.jwtService.sign(payload);
-
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
-
-    await this.sessionModel.create({
-      userId: user.id,
-      token: accessToken,
-      expiresAt,
-    });
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userWithoutPassword } = user;
-    return {
-      accessToken,
-      user: userWithoutPassword,
-    };
   }
 
   async validateToken(token: string) {
