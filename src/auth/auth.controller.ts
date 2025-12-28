@@ -7,16 +7,12 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { JwtPayload } from './strategies/jwt.strategy';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './guards/jwt-auth.guard';
-
-interface RequestWithUser extends Request {
-  user: JwtPayload;
-}
+import type { RequestWithUser } from '../common/interfaces/user-request.interface';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -34,7 +30,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getMe(@Request() req: RequestWithUser): Promise<JwtPayload> {
+  getMe(@Request() req: RequestWithUser) {
     return Promise.resolve(req.user);
   }
 
