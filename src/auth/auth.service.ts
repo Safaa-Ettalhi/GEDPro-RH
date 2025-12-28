@@ -83,7 +83,6 @@ export class AuthService {
           expiresAt,
         });
       } catch (sessionError) {
-        // Si la création de session échoue, on continue quand même
         console.error('Erreur lors de la création de session:', sessionError);
       }
 

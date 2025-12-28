@@ -10,6 +10,7 @@ import { User } from './entities/user.entity';
 import { Session, SessionSchema } from './schemas/session.schema';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { JWT_SECRET, JWT_EXPIRES_IN } from './constants/jwt.constants';
 
 @Module({
   imports: [
@@ -18,11 +19,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret:
-        process.env.JWT_SECRET ||
-        'mon-super-secret-jwt-changez-moi-en-production',
+      secret: JWT_SECRET,
       signOptions: {
-        expiresIn: Number(process.env.JWT_EXPIRES_IN) || 24 * 60 * 60,
+        expiresIn: JWT_EXPIRES_IN,
       },
     }),
   ],

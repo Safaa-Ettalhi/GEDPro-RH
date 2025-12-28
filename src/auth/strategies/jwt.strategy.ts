@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Role } from '../../common/enums/role.enum';
 import { UserPayload } from '../../common/interfaces/user-request.interface';
+import { JWT_SECRET } from '../constants/jwt.constants';
 
 export interface JwtPayload {
   sub: number;
@@ -21,11 +22,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_SECRET || 'secret',
+      secretOrKey: JWT_SECRET,
     });
   }
 
   async validate(payload: JwtPayload): Promise<UserPayload> {
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException('Payload invalide');
+    }
+
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
     });
