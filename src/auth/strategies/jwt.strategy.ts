@@ -5,9 +5,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 
+import { Role } from '../../common/enums/role.enum';
+
 export interface JwtPayload {
   sub: number;
   email: string;
+  role?: Role;
 }
 
 @Injectable()
@@ -32,6 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
+      sub: user.id,
       id: user.id,
       email: user.email,
       name: user.name,
