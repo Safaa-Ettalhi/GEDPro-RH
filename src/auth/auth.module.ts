@@ -7,6 +7,8 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { User } from './entities/user.entity';
+import { Organization } from '../organizations/entities/organization.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Session, SessionSchema } from './schemas/session.schema';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -14,7 +16,7 @@ import { JWT_SECRET, JWT_EXPIRES_IN } from './constants/jwt.constants';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Organization, UserOrganization]),
     MongooseModule.forFeature([{ name: Session.name, schema: SessionSchema }]),
 
     PassportModule.register({ defaultStrategy: 'jwt' }),

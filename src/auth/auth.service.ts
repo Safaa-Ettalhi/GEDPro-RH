@@ -11,12 +11,18 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { Role } from '../common/enums/role.enum';
+import { Organization } from '../organizations/entities/organization.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
+    @InjectRepository(UserOrganization)
+    private userOrganizationRepository: Repository<UserOrganization>,
     @InjectModel(Session.name)
     private sessionModel: Model<SessionDocument>,
     private jwtService: JwtService,
@@ -41,6 +47,23 @@ export class AuthService {
     });
 
     const savedUser = await this.userRepository.save(user);
+
+    // Créer une organisation par défaut pour le nouvel utilisateur
+    const defaultOrganization = this.organizationRepository.create({
+      name: `${createUserDto.name}'s Organization`,
+      description: 'Organisation par défaut',
+    });
+    const savedOrganization =
+      await this.organizationRepository.save(defaultOrganization);
+
+    // Associer l'utilisateur à l'organisation en tant qu'admin
+    const userOrganization = this.userOrganizationRepository.create({
+      userId: savedUser.id,
+      organizationId: savedOrganization.id,
+      role: Role.ADMIN,
+    });
+    await this.userOrganizationRepository.save(userOrganization);
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = savedUser;
     return result;

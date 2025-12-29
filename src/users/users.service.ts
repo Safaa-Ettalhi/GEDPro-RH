@@ -109,7 +109,6 @@ export class UsersService {
 
   async remove(
     id: number,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     currentUserId: number,
   ): Promise<{ message: string }> {
     if (id === currentUserId) {

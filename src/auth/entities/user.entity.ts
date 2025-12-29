@@ -3,8 +3,10 @@ import {
   Column,
   CreateDateColumn,
   PrimaryGeneratedColumn,
+  OneToMany,
 } from 'typeorm';
 import { Role } from '../../common/enums/role.enum';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 
 @Entity('users')
 export class User {
@@ -29,4 +31,7 @@ export class User {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @OneToMany(() => UserOrganization, (userOrg) => userOrg.user)
+  userOrganizations: UserOrganization[];
 }
