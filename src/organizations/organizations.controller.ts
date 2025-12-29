@@ -100,4 +100,15 @@ export class OrganizationsController {
       req.user.id,
     );
   }
+
+  @Get(':id/debug')
+  async debugOrganization(
+    @Param('id', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.organizationsService.debugUserOrganization(
+      organizationId,
+      req.user.id,
+    );
+  }
 }

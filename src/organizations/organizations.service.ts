@@ -84,9 +84,18 @@ export class OrganizationsService {
       where: { organizationId: id, userId },
     });
 
-    if (!userOrg || userOrg.role !== Role.ADMIN) {
+    if (!userOrg) {
       throw new ForbiddenException(
-        "Vous devez être administrateur de l'organisation pour effectuer cette action",
+        "Vous n'appartenez pas à cette organisation",
+      );
+    }
+
+    const userRole = String(userOrg.role).trim().toLowerCase();
+    const adminRole = String(Role.ADMIN).trim().toLowerCase();
+
+    if (userRole !== adminRole) {
+      throw new ForbiddenException(
+        `Vous devez être administrateur de l'organisation pour effectuer cette action. Votre rôle: ${userOrg.role}, Requis: ${Role.ADMIN}`,
       );
     }
 
@@ -107,9 +116,18 @@ export class OrganizationsService {
       where: { organizationId: id, userId },
     });
 
-    if (!userOrg || userOrg.role !== Role.ADMIN) {
+    if (!userOrg) {
       throw new ForbiddenException(
-        "Vous devez être administrateur de l'organisation pour effectuer cette action",
+        "Vous n'appartenez pas à cette organisation",
+      );
+    }
+
+    const userRole = String(userOrg.role).trim().toLowerCase();
+    const adminRole = String(Role.ADMIN).trim().toLowerCase();
+
+    if (userRole !== adminRole) {
+      throw new ForbiddenException(
+        `Vous devez être administrateur de l'organisation pour effectuer cette action. Votre rôle: ${userOrg.role}, Requis: ${Role.ADMIN}`,
       );
     }
 
@@ -135,9 +153,19 @@ export class OrganizationsService {
       where: { organizationId, userId: currentUserId },
     });
 
-    if (!currentUserOrg || currentUserOrg.role !== Role.ADMIN) {
+    if (!currentUserOrg) {
       throw new ForbiddenException(
-        "Vous devez être administrateur de l'organisation pour effectuer cette action",
+        "Vous n'appartenez pas à cette organisation",
+      );
+    }
+
+    // Vérifier le rôle - comparaison robuste
+    const userRole = String(currentUserOrg.role).trim().toLowerCase();
+    const adminRole = String(Role.ADMIN).trim().toLowerCase();
+
+    if (userRole !== adminRole) {
+      throw new ForbiddenException(
+        `Vous devez être administrateur de l'organisation pour effectuer cette action. Votre rôle: ${currentUserOrg.role}, Requis: ${Role.ADMIN}`,
       );
     }
 
@@ -189,9 +217,19 @@ export class OrganizationsService {
       where: { organizationId, userId: currentUserId },
     });
 
-    if (!currentUserOrg || currentUserOrg.role !== Role.ADMIN) {
+    if (!currentUserOrg) {
       throw new ForbiddenException(
-        "Vous devez être administrateur de l'organisation pour effectuer cette action",
+        "Vous n'appartenez pas à cette organisation",
+      );
+    }
+
+    // Vérifier le rôle - comparaison robuste
+    const userRole = String(currentUserOrg.role).trim().toLowerCase();
+    const adminRole = String(Role.ADMIN).trim().toLowerCase();
+
+    if (userRole !== adminRole) {
+      throw new ForbiddenException(
+        `Vous devez être administrateur de l'organisation pour effectuer cette action. Votre rôle: ${currentUserOrg.role}, Requis: ${Role.ADMIN}`,
       );
     }
 
@@ -268,5 +306,35 @@ export class OrganizationsService {
     });
 
     return userOrg ? userOrg.organization : null;
+  }
+
+  async debugUserOrganization(
+    organizationId: number,
+    userId: number,
+  ): Promise<{
+    found: boolean;
+    userOrg: UserOrganization | null;
+    role: string | null;
+    roleMatches: boolean;
+    allUserOrgs: UserOrganization[];
+  }> {
+    const userOrg = await this.userOrganizationRepository.findOne({
+      where: { organizationId, userId },
+    });
+
+    const allUserOrgs = await this.userOrganizationRepository.find({
+      where: { userId },
+    });
+
+    return {
+      found: !!userOrg,
+      userOrg: userOrg || null,
+      role: userOrg?.role || null,
+      roleMatches: userOrg
+        ? String(userOrg.role).trim().toLowerCase() ===
+          String(Role.ADMIN).trim().toLowerCase()
+        : false,
+      allUserOrgs,
+    };
   }
 }
