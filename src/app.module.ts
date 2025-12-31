@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { FormsModule } from './forms/forms.module';
 import { DocumentsModule } from './documents/documents.module';
+import { CandidatesModule } from './candidates/candidates.module';
 
 @Module({
   imports: [
@@ -22,13 +23,14 @@ import { DocumentsModule } from './documents/documents.module';
       synchronize: true,
     }),
     MongooseModule.forRoot(
-      process.env.MONGO_URI || 'mongodb://localhost:27017/GEDPRO',
+      process.env.MONGO_URI || 'mongodb://localhost:27017/gedpro',
     ),
     AuthModule,
     UsersModule,
     OrganizationsModule,
     FormsModule,
     DocumentsModule,
+    CandidatesModule,
   ],
 })
 export class AppModule {}
