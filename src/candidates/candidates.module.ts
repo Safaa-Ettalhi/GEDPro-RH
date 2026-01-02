@@ -15,6 +15,7 @@ import {
   CandidateStateHistory,
   CandidateStateHistorySchema,
 } from './schemas/candidate-state-history.schema';
+import { SkillsModule } from '../skills/skills.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import {
     MongooseModule.forFeature([
       { name: CandidateStateHistory.name, schema: CandidateStateHistorySchema },
     ]),
+    SkillsModule,
   ],
   controllers: [CandidatesController],
   providers: [CandidatesService],
