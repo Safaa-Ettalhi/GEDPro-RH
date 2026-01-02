@@ -127,6 +127,21 @@ export class DocumentsController {
     );
   }
 
+  @Post(':id/process')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.USER)
+  processDocument(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.documentsService.processDocument(
+      id,
+      organizationId,
+      req.user.id,
+    );
+  }
+
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
