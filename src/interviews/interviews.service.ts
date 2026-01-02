@@ -18,6 +18,7 @@ import { Role } from '../common/enums/role.enum';
 import { InterviewStatus } from '../common/enums/interview-status.enum';
 import { CandidateState } from '../common/enums/candidate-state.enum';
 import { CandidatesService } from '../candidates/candidates.service';
+import { GoogleCalendarService } from './services/google-calendar.service';
 
 @Injectable()
 export class InterviewsService {
@@ -35,6 +36,7 @@ export class InterviewsService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private candidatesService: CandidatesService,
+    private googleCalendarService: GoogleCalendarService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -167,6 +169,50 @@ export class InterviewsService {
         this.logger.warn(
           `Impossible de changer l'état du candidat: ${errorMessage}`,
         );
+      }
+    }
+
+    if (this.googleCalendarService.isConfigured()) {
+      try {
+        const participants: User[] = [];
+        if (
+          createInterviewDto.participantIds &&
+          createInterviewDto.participantIds.length > 0
+        ) {
+          for (const participantId of createInterviewDto.participantIds) {
+            const participant = await this.userRepository.findOne({
+              where: { id: participantId },
+            });
+            if (participant) {
+              participants.push(participant);
+            }
+          }
+        }
+
+        const eventId = await this.googleCalendarService.createEvent(
+          savedInterview,
+          {
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            email: candidate.email,
+          },
+          participants,
+        );
+
+        if (eventId) {
+          savedInterview.calendarEventId = eventId;
+          await this.interviewRepository.save(savedInterview);
+          this.logger.log(
+            `Événement Google Calendar créé pour l'entretien ${savedInterview.id}`,
+          );
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.error(
+          `Erreur lors de la création de l'événement Google Calendar: ${errorMessage}`,
+        );
+        // Ne pas bloquer la création de l'entretien si Google Calendar échoue
       }
     }
 
@@ -317,6 +363,51 @@ export class InterviewsService {
 
     await this.interviewRepository.save(interview);
 
+    if (
+      this.googleCalendarService.isConfigured() &&
+      interview.calendarEventId
+    ) {
+      try {
+        const candidate = await this.candidateRepository.findOne({
+          where: { id: interview.candidateId },
+        });
+
+        if (candidate) {
+          const participants: User[] = [];
+          const participantIds =
+            updateInterviewDto.participantIds || interview.participantIds || [];
+          for (const participantId of participantIds) {
+            const participant = await this.userRepository.findOne({
+              where: { id: participantId },
+            });
+            if (participant) {
+              participants.push(participant);
+            }
+          }
+
+          await this.googleCalendarService.updateEvent(
+            interview.calendarEventId,
+            interview,
+            {
+              firstName: candidate.firstName,
+              lastName: candidate.lastName,
+              email: candidate.email,
+            },
+            participants,
+          );
+          this.logger.log(
+            `Événement Google Calendar mis à jour pour l'entretien ${interview.id}`,
+          );
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.error(
+          `Erreur lors de la mise à jour de l'événement Google Calendar: ${errorMessage}`,
+        );
+      }
+    }
+
     return this.findOne(id, organizationId, userId);
   }
 
@@ -337,6 +428,25 @@ export class InterviewsService {
 
     if (!interview) {
       throw new NotFoundException('Entretien introuvable');
+    }
+
+    if (
+      this.googleCalendarService.isConfigured() &&
+      interview.calendarEventId
+    ) {
+      try {
+        await this.googleCalendarService.deleteEvent(interview.calendarEventId);
+        this.logger.log(
+          `Événement Google Calendar supprimé pour l'entretien ${interview.id}`,
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.error(
+          `Erreur lors de la suppression de l'événement Google Calendar: ${errorMessage}`,
+        );
+        // Ne pas bloquer la suppression de l'entretien si Google Calendar échoue
+      }
     }
 
     await this.interviewRepository.remove(interview);
@@ -364,5 +474,98 @@ export class InterviewsService {
       relations: ['createdByUser'],
       order: { date: 'ASC', startTime: 'ASC' },
     });
+  }
+
+  async syncWithCalendar(
+    id: number,
+    organizationId: number,
+    userId: number,
+  ): Promise<{ message: string; eventId?: string }> {
+    await this.checkOrganizationAccess(organizationId, userId, [
+      Role.ADMIN,
+      Role.MANAGER,
+    ]);
+
+    const interview = await this.interviewRepository.findOne({
+      where: { id, organizationId },
+      relations: ['candidate'],
+    });
+
+    if (!interview) {
+      throw new NotFoundException('Entretien introuvable');
+    }
+
+    if (!this.googleCalendarService.isConfigured()) {
+      throw new BadRequestException(
+        "Google Calendar n'est pas configuré. Veuillez configurer les credentials dans les variables d'environnement.",
+      );
+    }
+
+    const candidate = await this.candidateRepository.findOne({
+      where: { id: interview.candidateId },
+    });
+
+    if (!candidate) {
+      throw new NotFoundException('Candidat introuvable');
+    }
+
+    const participants: User[] = [];
+    if (interview.participantIds && interview.participantIds.length > 0) {
+      for (const participantId of interview.participantIds) {
+        const participant = await this.userRepository.findOne({
+          where: { id: participantId },
+        });
+        if (participant) {
+          participants.push(participant);
+        }
+      }
+    }
+
+    try {
+      if (interview.calendarEventId) {
+        // Mettre à jour l'événement existant
+        await this.googleCalendarService.updateEvent(
+          interview.calendarEventId,
+          interview,
+          {
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            email: candidate.email,
+          },
+          participants,
+        );
+        return {
+          message: 'Entretien synchronisé avec Google Calendar',
+          eventId: interview.calendarEventId,
+        };
+      } else {
+        const eventId = await this.googleCalendarService.createEvent(
+          interview,
+          {
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            email: candidate.email,
+          },
+          participants,
+        );
+
+        if (eventId) {
+          interview.calendarEventId = eventId;
+          await this.interviewRepository.save(interview);
+          return {
+            message: 'Entretien créé dans Google Calendar',
+            eventId: eventId,
+          };
+        }
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new BadRequestException(
+        `Erreur lors de la synchronisation avec Google Calendar: ${errorMessage}`,
+      );
+    }
+
+    return { message: 'Synchronisation effectuée' };
   }
 }
