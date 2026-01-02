@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,9 +14,13 @@ import { MinioService } from './services/minio.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { Role } from '../common/enums/role.enum';
+import { OcrService } from '../skills/services/ocr.service';
+import { SkillsService } from '../skills/skills.service';
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     @InjectRepository(Document)
     private documentRepository: Repository<Document>,
@@ -24,6 +29,8 @@ export class DocumentsService {
     @InjectRepository(UserOrganization)
     private userOrganizationRepository: Repository<UserOrganization>,
     private minioService: MinioService,
+    private ocrService: OcrService,
+    private skillsService: SkillsService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -95,7 +102,20 @@ export class DocumentsService {
       isProcessed: false,
     });
 
-    return this.documentRepository.save(document);
+    const savedDocument = await this.documentRepository.save(document);
+
+    this.processDocumentAsync(
+      savedDocument.id,
+      file.buffer,
+      file.mimetype,
+      organizationId,
+    ).catch((error) => {
+      this.logger.error(
+        `Erreur lors du traitement OCR du document ${savedDocument.id}: ${error.message}`,
+      );
+    });
+
+    return savedDocument;
   }
 
   async findAll(organizationId: number, userId: number): Promise<Document[]> {
@@ -185,5 +205,81 @@ export class DocumentsService {
     await this.documentRepository.remove(document);
 
     return { message: 'Document supprimé avec succès' };
+  }
+
+  private async processDocumentAsync(
+    documentId: number,
+    buffer: Buffer,
+    mimeType: string,
+    organizationId: number,
+  ): Promise<void> {
+    try {
+      this.logger.log(`Début du traitement OCR pour le document ${documentId}`);
+
+      const extractedText = await this.ocrService.extractText(buffer, mimeType);
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        this.logger.warn(`Aucun texte extrait du document ${documentId}`);
+        return;
+      }
+
+      const document = await this.documentRepository.findOne({
+        where: { id: documentId },
+      });
+
+      if (!document) {
+        this.logger.warn(
+          `Document ${documentId} introuvable pour traitement OCR`,
+        );
+        return;
+      }
+
+      document.extractedText = extractedText;
+      document.isProcessed = true;
+      await this.documentRepository.save(document);
+
+      this.logger.log(
+        `Texte extrait du document ${documentId} (${extractedText.length} caractères)`,
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.error(
+        `Erreur lors du traitement OCR du document ${documentId}: ${errorMessage}`,
+      );
+
+      const document = await this.documentRepository.findOne({
+        where: { id: documentId },
+      });
+      if (document) {
+        document.isProcessed = false;
+        await this.documentRepository.save(document);
+      }
+    }
+  }
+
+  async processDocument(
+    id: number,
+    organizationId: number,
+    userId: number,
+  ): Promise<{ message: string; extractedText: string }> {
+    await this.checkOrganizationAccess(organizationId, userId);
+
+    const document = await this.findOne(id, organizationId, userId);
+    const { buffer } = await this.getFileBuffer(id, organizationId, userId);
+
+    const extractedText = await this.ocrService.extractText(
+      buffer,
+      document.mimeType,
+    );
+
+    document.extractedText = extractedText;
+    document.isProcessed = true;
+    await this.documentRepository.save(document);
+
+    return {
+      message: 'Document traité avec succès',
+      extractedText,
+    };
   }
 }
