@@ -185,8 +185,25 @@ export class GoogleCalendarService {
     try {
       await this.ensureValidAccessToken();
 
+      const interviewDate =
+        interview.date instanceof Date
+          ? interview.date
+          : typeof interview.date === 'string'
+            ? new Date(interview.date)
+            : new Date(interview.date as any);
+
+      if (isNaN(interviewDate.getTime())) {
+        const dateStr =
+          interview.date instanceof Date
+            ? interview.date.toISOString()
+            : String(interview.date);
+        throw new Error(
+          `Date d'entretien invalide: ${dateStr} (type: ${typeof interview.date})`,
+        );
+      }
+
       const startDateTime = this.calculateDateTime(
-        interview.date,
+        interviewDate,
         interview.startTime,
       );
       const endDateTime = new Date(startDateTime);
@@ -281,8 +298,25 @@ export class GoogleCalendarService {
         eventId: eventId,
       });
 
+      const interviewDate =
+        interview.date instanceof Date
+          ? interview.date
+          : typeof interview.date === 'string'
+            ? new Date(interview.date)
+            : new Date(interview.date as any);
+
+      if (isNaN(interviewDate.getTime())) {
+        const dateStr =
+          interview.date instanceof Date
+            ? interview.date.toISOString()
+            : String(interview.date);
+        throw new Error(
+          `Date d'entretien invalide: ${dateStr} (type: ${typeof interview.date})`,
+        );
+      }
+
       const startDateTime = this.calculateDateTime(
-        interview.date,
+        interviewDate,
         interview.startTime,
       );
       const endDateTime = new Date(startDateTime);
@@ -319,7 +353,7 @@ export class GoogleCalendarService {
         calendarId: 'primary',
         eventId: eventId,
         requestBody: updatedEvent,
-        sendUpdates: 'all', // Notifier tous les participants
+        sendUpdates: 'all',
       });
 
       this.logger.log(
@@ -371,12 +405,61 @@ export class GoogleCalendarService {
     }
   }
 
-  private calculateDateTime(date: Date, startTime: string): Date {
-    const dateStr = date.toISOString().split('T')[0];
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const dateTime = new Date(dateStr);
-    dateTime.setHours(hours, minutes, 0, 0);
-    return dateTime;
+  private calculateDateTime(date: Date | string, startTime: string): Date {
+    try {
+      let dateObj: Date;
+
+      if (date instanceof Date) {
+        dateObj = date;
+      } else if (typeof date === 'string') {
+        dateObj = new Date(date);
+      } else {
+        const dateStr = String(date);
+        this.logger.warn(
+          `Format de date inattendu: ${typeof date}, valeur: ${dateStr}`,
+        );
+        dateObj = new Date(date as any);
+      }
+
+      if (isNaN(dateObj.getTime())) {
+        const dateStr =
+          date instanceof Date ? date.toISOString() : String(date);
+        throw new Error(`Date invalide: ${dateStr} (type: ${typeof date})`);
+      }
+
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      const timeMatch = startTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      if (!timeMatch) {
+        throw new Error(`Format d'heure invalide: ${startTime}`);
+      }
+      const hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2], 10);
+
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        throw new Error(`Heure invalide: ${startTime}`);
+      }
+
+      const dateTimeStr = `${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+
+      const dateTime = new Date(dateTimeStr);
+
+      if (isNaN(dateTime.getTime())) {
+        throw new Error(`Date/heure invalide après conversion: ${dateTimeStr}`);
+      }
+
+      return dateTime;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      const dateStr = date instanceof Date ? date.toISOString() : String(date);
+      this.logger.error(
+        `Erreur dans calculateDateTime: ${errorMessage}, date: ${dateStr}, startTime: ${startTime}`,
+      );
+      throw error;
+    }
   }
 
   async getCalendarInfo(): Promise<{
