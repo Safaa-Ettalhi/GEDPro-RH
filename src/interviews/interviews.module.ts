@@ -1,0 +1,27 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { InterviewsService } from './interviews.service';
+import { InterviewsController } from './interviews.controller';
+import { Interview } from './entities/interview.entity';
+import { Candidate } from '../candidates/entities/candidate.entity';
+import { Organization } from '../organizations/entities/organization.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { User } from '../auth/entities/user.entity';
+import { CandidatesModule } from '../candidates/candidates.module';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Interview,
+      Candidate,
+      Organization,
+      UserOrganization,
+      User,
+    ]),
+    CandidatesModule,
+  ],
+  controllers: [InterviewsController],
+  providers: [InterviewsService],
+  exports: [InterviewsService],
+})
+export class InterviewsModule {}
