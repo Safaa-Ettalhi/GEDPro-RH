@@ -16,6 +16,7 @@ import {
   CandidateStateHistorySchema,
 } from './schemas/candidate-state-history.schema';
 import { SkillsModule } from '../skills/skills.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SkillsModule } from '../skills/skills.module';
       { name: CandidateStateHistory.name, schema: CandidateStateHistorySchema },
     ]),
     SkillsModule,
+    NotificationsModule,
   ],
   controllers: [CandidatesController],
   providers: [CandidatesService],
