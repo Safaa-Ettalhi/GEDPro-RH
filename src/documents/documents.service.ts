@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Document } from './entities/document.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
@@ -16,6 +16,8 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 import { Role } from '../common/enums/role.enum';
 import { OcrService } from '../skills/services/ocr.service';
 import { SkillsService } from '../skills/skills.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../common/enums/notification-type.enum';
 
 @Injectable()
 export class DocumentsService {
@@ -31,6 +33,7 @@ export class DocumentsService {
     private minioService: MinioService,
     private ocrService: OcrService,
     private skillsService: SkillsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -103,6 +106,41 @@ export class DocumentsService {
     });
 
     const savedDocument = await this.documentRepository.save(document);
+
+    // Notifier les ADMIN et MANAGER de l'upload
+    try {
+      const rhUsers = await this.userOrganizationRepository.find({
+        where: {
+          organizationId,
+          role: In([Role.ADMIN, Role.MANAGER]),
+        },
+        relations: ['user'],
+      });
+
+      const userIds = rhUsers
+        .map((uo) => uo.user?.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
+
+      if (userIds.length > 0) {
+        await this.notificationsService.createAndSend(
+          NotificationType.DOCUMENT_UPLOADED,
+          'Nouveau document uploadé',
+          `Document "${savedDocument.originalName}" (${savedDocument.type}) a été uploadé`,
+          organizationId,
+          userIds,
+          {
+            documentId: savedDocument.id,
+            documentType: savedDocument.type,
+          },
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification d'upload: ${errorMessage}`,
+      );
+    }
 
     this.processDocumentAsync(
       savedDocument.id,
@@ -241,6 +279,29 @@ export class DocumentsService {
       this.logger.log(
         `Texte extrait du document ${documentId} (${extractedText.length} caractères)`,
       );
+
+      // Notifier l'utilisateur qui a uploadé le document que le traitement est terminé
+      try {
+        if (document.uploadedBy && document.organizationId) {
+          await this.notificationsService.createAndSend(
+            NotificationType.DOCUMENT_PROCESSED,
+            'Traitement OCR terminé',
+            `Le document "${document.originalName}" a été traité avec succès. ${extractedText.length} caractères extraits.`,
+            document.organizationId,
+            [document.uploadedBy],
+            {
+              documentId: document.id,
+              extractedTextLength: extractedText.length,
+            },
+          );
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.warn(
+          `Erreur lors de l'envoi de la notification de traitement OCR: ${errorMessage}`,
+        );
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Erreur inconnue';

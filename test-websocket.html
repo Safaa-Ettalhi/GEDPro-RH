@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebSocket - GEDPro</title>
+    <!-- Socket.io Client Library -->
+    <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .disconnect {
+            background-color: #f44336;
+        }
+        .disconnect:hover {
+            background-color: #da190b;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.connecting {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .messages {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-left: 3px solid #007bff;
+            background-color: white;
+        }
+        .message.error {
+            border-left-color: #dc3545;
+            background-color: #fff5f5;
+        }
+        .message.success {
+            border-left-color: #28a745;
+            background-color: #f0fff4;
+        }
+        .message.info {
+            border-left-color: #17a2b8;
+            background-color: #f0f9ff;
+        }
+        .timestamp {
+            color: #6c757d;
+            font-size: 10px;
+        }
+        .clear-btn {
+            background-color: #6c757d;
+            float: right;
+        }
+        .clear-btn:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Test WebSocket - GEDPro Notifications</h1>
+        
+        <div class="form-group">
+            <label for="serverUrl">URL du serveur :</label>
+            <input type="text" id="serverUrl" value="http://localhost:4000" placeholder="http://localhost:4000">
+            <small style="color: #666;">Note: Utilisez http:// (Socket.io gère automatiquement le WebSocket)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="token">Token JWT :</label>
+            <textarea id="token" placeholder="Collez votre token JWT ici (obtenu via /auth/login)"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="organizationId">Organization ID :</label>
+            <input type="number" id="organizationId" value="6" placeholder="6">
+        </div>
+
+        <div class="form-group">
+            <button id="connectBtn" onclick="connect()">🔗 Se connecter</button>
+            <button id="disconnectBtn" onclick="disconnect()" class="disconnect" disabled>❌ Se déconnecter</button>
+            <button onclick="clearMessages()" class="clear-btn">🗑️ Effacer les messages</button>
+        </div>
+
+        <div id="status" class="status disconnected">
+            ⚫ Déconnecté
+        </div>
+
+        <div class="form-group">
+            <label>Messages reçus :</label>
+            <div id="messages" class="messages"></div>
+        </div>
+
+        <div class="form-group">
+            <label>Actions de test :</label>
+            <button onclick="markAllRead()" disabled id="markAllReadBtn">✅ Marquer toutes comme lues</button>
+            <button onclick="getUnreadCount()" disabled id="getUnreadCountBtn">📊 Compter les non lues</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let token = '';
+        let organizationId = '';
+
+        function addMessage(message, type = 'info') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span><br>
+                ${typeof message === 'object' ? JSON.stringify(message, null, 2) : message}
+            `;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(status, text) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = text;
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            token = document.getElementById('token').value.trim();
+            organizationId = document.getElementById('organizationId').value;
+
+            if (!token) {
+                alert('Veuillez entrer un token JWT !\n\nObtenez-en un via : POST http://localhost:4000/auth/login');
+                return;
+            }
+
+            if (!organizationId) {
+                alert('Veuillez entrer un Organization ID !');
+                return;
+            }
+
+            updateStatus('connecting', '🟡 Connexion en cours...');
+            addMessage(`Tentative de connexion à : ${serverUrl}/notifications`, 'info');
+
+            try {
+                // Utiliser Socket.io au lieu de WebSocket natif
+                socket = io(`${serverUrl}/notifications`, {
+                    query: {
+                        token: token,
+                        organizationId: organizationId
+                    },
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: 5
+                });
+
+                socket.on('connect', function() {
+                    updateStatus('connected', '🟢 Connecté');
+                    addMessage('✅ Connexion établie avec succès !', 'success');
+                    addMessage(`Socket ID: ${socket.id}`, 'info');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('markAllReadBtn').disabled = false;
+                    document.getElementById('getUnreadCountBtn').disabled = false;
+                });
+
+                socket.on('notifications:unread', function(data) {
+                    addMessage({
+                        event: 'notifications:unread',
+                        data: data
+                    }, 'success');
+                });
+
+                socket.on('notification:new', function(data) {
+                    addMessage({
+                        event: 'notification:new',
+                        data: data
+                    }, 'success');
+                });
+
+                socket.on('notifications:status', function(data) {
+                    addMessage({
+                        event: 'notifications:status',
+                        data: data
+                    }, 'info');
+                });
+
+                socket.on('error', function(error) {
+                    addMessage({
+                        error: 'Erreur Socket.io',
+                        details: error
+                    }, 'error');
+                    updateStatus('disconnected', '🔴 Erreur de connexion');
+                });
+
+                socket.on('disconnect', function(reason) {
+                    updateStatus('disconnected', '⚫ Déconnecté');
+                    addMessage({
+                        event: 'Connexion fermée',
+                        reason: reason
+                    }, 'info');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('markAllReadBtn').disabled = true;
+                    document.getElementById('getUnreadCountBtn').disabled = true;
+                });
+
+                socket.on('connect_error', function(error) {
+                    addMessage({
+                        error: 'Erreur de connexion',
+                        details: error.message || error
+                    }, 'error');
+                    updateStatus('disconnected', '🔴 Erreur de connexion');
+                });
+
+            } catch (error) {
+                addMessage({
+                    error: 'Erreur lors de la création de la connexion',
+                    details: error.message
+                }, 'error');
+                updateStatus('disconnected', '🔴 Erreur');
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.close();
+                socket = null;
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        function markAllRead() {
+            if (socket && socket.connected) {
+                socket.emit('notifications:mark-all-read');
+                addMessage('📤 Demande envoyée : Marquer toutes comme lues', 'info');
+            }
+        }
+
+        function getUnreadCount() {
+            // Cette fonction nécessiterait un endpoint REST
+            addMessage('ℹ️ Utilisez l\'endpoint REST : GET /notifications/count?organizationId=' + organizationId, 'info');
+        }
+
+        // Permettre la connexion avec Enter
+        document.getElementById('token').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                connect();
+            }
+        });
+    </script>
+</body>
+</html>
+

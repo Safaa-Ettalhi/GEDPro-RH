@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectModel } from '@nestjs/mongoose';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Model } from 'mongoose';
 import { Candidate } from './entities/candidate.entity';
 import { CandidateDocument } from './entities/candidate-document.entity';
@@ -27,6 +27,8 @@ import { CandidateState } from '../common/enums/candidate-state.enum';
 import { Role } from '../common/enums/role.enum';
 import { SkillsService } from '../skills/skills.service';
 import { Logger } from '@nestjs/common';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../common/enums/notification-type.enum';
 
 @Injectable()
 export class CandidatesService {
@@ -52,6 +54,7 @@ export class CandidatesService {
     @InjectModel(CandidateStateHistory.name)
     private stateHistoryModel: Model<CandidateStateHistoryDocument>,
     private skillsService: SkillsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -139,6 +142,51 @@ export class CandidatesService {
       userId,
       'Candidat créé',
     );
+
+    // Notifier les utilisateurs RH et MANAGER de la nouvelle candidature
+    try {
+      const rhUsers = await this.userOrganizationRepository.find({
+        where: {
+          organizationId,
+          role: In([Role.ADMIN, Role.MANAGER]),
+        },
+        relations: ['user'],
+      });
+
+      const userIds = rhUsers
+        .map((uo) => uo.user?.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
+
+      this.logger.log(
+        `Création de notification pour ${userIds.length} utilisateur(s) ADMIN/MANAGER (org: ${organizationId})`,
+      );
+
+      if (userIds.length > 0) {
+        await this.notificationsService.createAndSend(
+          NotificationType.NEW_CANDIDATE,
+          'Nouvelle candidature',
+          `${savedCandidate.firstName} ${savedCandidate.lastName} a postulé`,
+          organizationId,
+          userIds,
+          {
+            candidateId: savedCandidate.id,
+          },
+        );
+        this.logger.log(
+          `Notification de nouvelle candidature envoyée à ${userIds.length} utilisateur(s)`,
+        );
+      } else {
+        this.logger.warn(
+          `Aucun utilisateur ADMIN/MANAGER trouvé pour l'organisation ${organizationId}`,
+        );
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification de nouvelle candidature: ${errorMessage}`,
+      );
+    }
 
     return this.findOne(savedCandidate.id, organizationId, userId);
   }
@@ -283,6 +331,50 @@ export class CandidatesService {
       user?.name || 'Utilisateur inconnu',
     );
 
+    try {
+      const rhUsers = await this.userOrganizationRepository.find({
+        where: {
+          organizationId,
+          role: In([Role.ADMIN, Role.MANAGER]),
+        },
+        relations: ['user'],
+      });
+
+      const userIds = rhUsers
+        .map((uo) => uo.user?.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
+
+      if (userIds.length > 0) {
+        const stateLabels: Record<CandidateState, string> = {
+          [CandidateState.NOUVEAU]: 'Nouveau',
+          [CandidateState.PRESELECTIONNE]: 'Présélectionné',
+          [CandidateState.ENTRETIEN_PLANIFIE]: 'Entretien planifié',
+          [CandidateState.EN_ENTRETIEN]: 'En entretien',
+          [CandidateState.ACCEPTE]: 'Accepté',
+          [CandidateState.REFUSE]: 'Refusé',
+        };
+
+        await this.notificationsService.createAndSend(
+          NotificationType.STATE_CHANGED,
+          "Changement d'état du candidat",
+          `${candidate.firstName} ${candidate.lastName} est maintenant ${stateLabels[newState]}`,
+          organizationId,
+          userIds,
+          {
+            candidateId: candidate.id,
+            previousState,
+            newState,
+          },
+        );
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification de changement d'état: ${errorMessage}`,
+      );
+    }
+
     return this.findOne(id, organizationId, userId);
   }
 
@@ -351,6 +443,41 @@ export class CandidatesService {
 
     await this.candidateDocumentRepository.save(association);
 
+    // Notifier les ADMIN et MANAGER de l'association
+    try {
+      const rhUsers = await this.userOrganizationRepository.find({
+        where: {
+          organizationId,
+          role: In([Role.ADMIN, Role.MANAGER]),
+        },
+        relations: ['user'],
+      });
+
+      const userIds = rhUsers
+        .map((uo) => uo.user?.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
+
+      if (userIds.length > 0) {
+        await this.notificationsService.createAndSend(
+          NotificationType.DOCUMENT_ASSOCIATED,
+          'Document associé à un candidat',
+          `Le document "${document.originalName}" a été associé à ${candidate.firstName} ${candidate.lastName}`,
+          organizationId,
+          userIds,
+          {
+            candidateId: candidate.id,
+            documentId: document.id,
+          },
+        );
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification d'association: ${errorMessage}`,
+      );
+    }
+
     // Extraire les compétences si le document a du texte extrait
     if (document.extractedText && document.extractedText.trim().length > 0) {
       this.skillsService
@@ -360,7 +487,7 @@ export class CandidatesService {
           documentId,
           organizationId,
         )
-        .catch((error) => {
+        .catch((error: unknown) => {
           const errorMessage =
             error instanceof Error ? error.message : 'Erreur inconnue';
           this.logger.error(

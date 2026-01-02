@@ -15,6 +15,8 @@ import { CreateSkillDto } from './dto/create-skill.dto';
 import { UpdateSkillDto } from './dto/update-skill.dto';
 import { Role } from '../common/enums/role.enum';
 import { SkillsExtractionService } from './services/skills-extraction.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../common/enums/notification-type.enum';
 
 @Injectable()
 export class SkillsService {
@@ -32,6 +34,7 @@ export class SkillsService {
     @InjectRepository(Candidate)
     private candidateRepository: Repository<Candidate>,
     private skillsExtractionService: SkillsExtractionService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -138,6 +141,53 @@ export class SkillsService {
     this.logger.log(
       `${candidateSkills.length} compétences associées au candidat ${candidateId}`,
     );
+
+    if (candidateSkills.length > 0) {
+      try {
+        const candidate = await this.candidateRepository.findOne({
+          where: { id: candidateId },
+        });
+
+        if (candidate) {
+          const rhUsers = await this.userOrganizationRepository.find({
+            where: {
+              organizationId,
+              role: In([Role.ADMIN, Role.MANAGER]),
+            },
+            relations: ['user'],
+          });
+
+          const userIds = rhUsers
+            .map((uo) => uo.user?.id)
+            .filter((id): id is number => id !== undefined);
+
+          if (userIds.length > 0) {
+            await this.notificationsService.createAndSend(
+              NotificationType.SKILLS_EXTRACTED,
+              'Compétences extraites',
+              `${candidateSkills.length} compétence(s) extraite(s) pour ${candidate.firstName} ${candidate.lastName}`,
+              organizationId,
+              userIds,
+              {
+                candidateId: candidate.id,
+                skillsCount: candidateSkills.length,
+                documentId: documentId ?? undefined,
+              } as {
+                candidateId: number;
+                skillsCount: number;
+                documentId?: number;
+              },
+            );
+          }
+        }
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.warn(
+          `Erreur lors de l'envoi de la notification d'extraction: ${errorMessage}`,
+        );
+      }
+    }
 
     return candidateSkills;
   }
@@ -403,6 +453,44 @@ export class SkillsService {
 
     skill.usageCount += 1;
     await this.skillRepository.save(skill);
+
+    // Notifier les ADMIN et MANAGER de l'association manuelle
+    try {
+      const rhUsers = await this.userOrganizationRepository.find({
+        where: {
+          organizationId,
+          role: In([Role.ADMIN, Role.MANAGER]),
+        },
+        relations: ['user'],
+      });
+
+      const userIds = rhUsers
+        .map((uo) => uo.user?.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
+
+      if (userIds.length > 0) {
+        await this.notificationsService.createAndSend(
+          NotificationType.SKILL_ASSOCIATED,
+          'Compétence associée manuellement',
+          `La compétence "${skill.name}" a été associée à ${candidate.firstName} ${candidate.lastName}`,
+          organizationId,
+          userIds,
+          {
+            candidateId: candidate.id,
+            skillId: skill.id,
+          } as {
+            candidateId: number;
+            skillId: number;
+          },
+        );
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification d'association: ${errorMessage}`,
+      );
+    }
 
     return saved;
   }

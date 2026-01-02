@@ -19,6 +19,8 @@ import { InterviewStatus } from '../common/enums/interview-status.enum';
 import { CandidateState } from '../common/enums/candidate-state.enum';
 import { CandidatesService } from '../candidates/candidates.service';
 import { GoogleCalendarService } from './services/google-calendar.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../common/enums/notification-type.enum';
 
 @Injectable()
 export class InterviewsService {
@@ -37,6 +39,7 @@ export class InterviewsService {
     private userRepository: Repository<User>,
     private candidatesService: CandidatesService,
     private googleCalendarService: GoogleCalendarService,
+    private notificationsService: NotificationsService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -214,6 +217,48 @@ export class InterviewsService {
         );
         // Ne pas bloquer la création de l'entretien si Google Calendar échoue
       }
+    }
+
+    // Notifier les participants de l'entretien planifié
+    try {
+      const participants: User[] = [];
+      if (
+        createInterviewDto.participantIds &&
+        createInterviewDto.participantIds.length > 0
+      ) {
+        for (const participantId of createInterviewDto.participantIds) {
+          const participant = await this.userRepository.findOne({
+            where: { id: participantId },
+          });
+          if (participant) {
+            participants.push(participant);
+          }
+        }
+      }
+
+      const userIds = participants
+        .map((p) => p.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
+
+      if (userIds.length > 0) {
+        await this.notificationsService.createAndSend(
+          NotificationType.INTERVIEW_PLANNED,
+          'Entretien planifié',
+          `Entretien "${savedInterview.title}" avec ${candidate.firstName} ${candidate.lastName} le ${savedInterview.date.toLocaleDateString('fr-FR')} à ${savedInterview.startTime}`,
+          organizationId,
+          userIds,
+          {
+            candidateId: candidate.id,
+            interviewId: savedInterview.id,
+          },
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification d'entretien planifié: ${errorMessage}`,
+      );
     }
 
     return this.findOne(savedInterview.id, organizationId, userId);
@@ -408,6 +453,51 @@ export class InterviewsService {
       }
     }
 
+    // Notifier les participants de la modification de l'entretien
+    try {
+      const candidate = await this.candidateRepository.findOne({
+        where: { id: interview.candidateId },
+      });
+
+      if (candidate) {
+        const participants: User[] = [];
+        const participantIds =
+          updateInterviewDto.participantIds || interview.participantIds || [];
+        for (const participantId of participantIds) {
+          const participant = await this.userRepository.findOne({
+            where: { id: participantId },
+          });
+          if (participant) {
+            participants.push(participant);
+          }
+        }
+
+        const userIds = participants
+          .map((p) => p.id)
+          .filter((id): id is number => id !== undefined && id !== userId);
+
+        if (userIds.length > 0) {
+          await this.notificationsService.createAndSend(
+            NotificationType.INTERVIEW_UPDATED,
+            'Entretien modifié',
+            `L'entretien "${interview.title}" avec ${candidate.firstName} ${candidate.lastName} a été modifié`,
+            organizationId,
+            userIds,
+            {
+              candidateId: candidate.id,
+              interviewId: interview.id,
+            },
+          );
+        }
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification d'entretien modifié: ${errorMessage}`,
+      );
+    }
+
     return this.findOne(id, organizationId, userId);
   }
 
@@ -447,6 +537,48 @@ export class InterviewsService {
         );
         // Ne pas bloquer la suppression de l'entretien si Google Calendar échoue
       }
+    }
+
+    // Notifier les participants de l'annulation de l'entretien
+    try {
+      const candidate = interview.candidate;
+      if (candidate) {
+        const participants: User[] = [];
+        if (interview.participantIds && interview.participantIds.length > 0) {
+          for (const participantId of interview.participantIds) {
+            const participant = await this.userRepository.findOne({
+              where: { id: participantId },
+            });
+            if (participant) {
+              participants.push(participant);
+            }
+          }
+        }
+
+        const userIds = participants
+          .map((p) => p.id)
+          .filter((id): id is number => id !== undefined && id !== userId);
+
+        if (userIds.length > 0) {
+          await this.notificationsService.createAndSend(
+            NotificationType.INTERVIEW_CANCELLED,
+            'Entretien annulé',
+            `L'entretien "${interview.title}" avec ${candidate.firstName} ${candidate.lastName} a été annulé`,
+            organizationId,
+            userIds,
+            {
+              candidateId: candidate.id,
+              interviewId: interview.id,
+            },
+          );
+        }
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification d'entretien annulé: ${errorMessage}`,
+      );
     }
 
     await this.interviewRepository.remove(interview);
