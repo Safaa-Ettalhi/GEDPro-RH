@@ -7,11 +7,13 @@ import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { MinioService } from './services/minio.service';
 import { SkillsModule } from '../skills/skills.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Document, Organization, UserOrganization]),
     SkillsModule,
+    NotificationsModule,
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService, MinioService],
