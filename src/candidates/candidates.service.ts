@@ -25,9 +25,13 @@ import { UpdateCandidateDto } from './dto/update-candidate.dto';
 import { ChangeStateDto } from './dto/change-state.dto';
 import { CandidateState } from '../common/enums/candidate-state.enum';
 import { Role } from '../common/enums/role.enum';
+import { SkillsService } from '../skills/skills.service';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class CandidatesService {
+  private readonly logger = new Logger(CandidatesService.name);
+
   constructor(
     @InjectRepository(Candidate)
     private candidateRepository: Repository<Candidate>,
@@ -47,6 +51,7 @@ export class CandidatesService {
     private userRepository: Repository<User>,
     @InjectModel(CandidateStateHistory.name)
     private stateHistoryModel: Model<CandidateStateHistoryDocument>,
+    private skillsService: SkillsService,
   ) {}
 
   private async checkOrganizationAccess(
@@ -345,6 +350,22 @@ export class CandidatesService {
     });
 
     await this.candidateDocumentRepository.save(association);
+
+    // Extraire les compétences si le document a du texte extrait
+    if (document.extractedText && document.extractedText.trim().length > 0) {
+      this.skillsService
+        .extractAndAssociateSkills(
+          document.extractedText,
+          candidateId,
+          documentId,
+          organizationId,
+        )
+        .catch((error) => {
+          this.logger.error(
+            `Erreur lors de l'extraction des compétences pour le document ${documentId}: ${error.message}`,
+          );
+        });
+    }
 
     return { message: 'Document associé au candidat avec succès' };
   }
