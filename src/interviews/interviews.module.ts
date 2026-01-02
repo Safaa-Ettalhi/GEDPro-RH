@@ -9,6 +9,7 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
 import { User } from '../auth/entities/user.entity';
 import { CandidatesModule } from '../candidates/candidates.module';
 import { GoogleCalendarService } from './services/google-calendar.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { GoogleCalendarService } from './services/google-calendar.service';
       User,
     ]),
     CandidatesModule,
+    NotificationsModule,
   ],
   controllers: [InterviewsController],
   providers: [InterviewsService, GoogleCalendarService],
