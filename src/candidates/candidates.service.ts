@@ -361,8 +361,10 @@ export class CandidatesService {
           organizationId,
         )
         .catch((error) => {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Erreur inconnue';
           this.logger.error(
-            `Erreur lors de l'extraction des compétences pour le document ${documentId}: ${error.message}`,
+            `Erreur lors de l'extraction des compétences pour le document ${documentId}: ${errorMessage}`,
           );
         });
     }

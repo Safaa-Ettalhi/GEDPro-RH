@@ -108,10 +108,11 @@ export class DocumentsService {
       savedDocument.id,
       file.buffer,
       file.mimetype,
-      organizationId,
     ).catch((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
       this.logger.error(
-        `Erreur lors du traitement OCR du document ${savedDocument.id}: ${error.message}`,
+        `Erreur lors du traitement OCR du document ${savedDocument.id}: ${errorMessage}`,
       );
     });
 
@@ -211,7 +212,6 @@ export class DocumentsService {
     documentId: number,
     buffer: Buffer,
     mimeType: string,
-    organizationId: number,
   ): Promise<void> {
     try {
       this.logger.log(`Début du traitement OCR pour le document ${documentId}`);
@@ -266,20 +266,64 @@ export class DocumentsService {
     await this.checkOrganizationAccess(organizationId, userId);
 
     const document = await this.findOne(id, organizationId, userId);
-    const { buffer } = await this.getFileBuffer(id, organizationId, userId);
 
-    const extractedText = await this.ocrService.extractText(
-      buffer,
-      document.mimeType,
-    );
+    try {
+      this.logger.log(
+        `Traitement OCR manuel pour le document ${id} (${document.minioPath})`,
+      );
+      const buffer = await this.minioService.getFile(document.minioPath);
 
-    document.extractedText = extractedText;
-    document.isProcessed = true;
-    await this.documentRepository.save(document);
+      if (!buffer || buffer.length === 0) {
+        throw new Error('Le fichier est vide ou introuvable dans MinIO');
+      }
 
-    return {
-      message: 'Document traité avec succès',
-      extractedText,
-    };
+      this.logger.log(
+        `Fichier récupéré depuis MinIO (${buffer.length} bytes), début extraction OCR...`,
+      );
+
+      const extractedText = await this.ocrService.extractText(
+        buffer,
+        document.mimeType,
+      );
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        this.logger.warn(`Aucun texte extrait du document ${id}`);
+        document.isProcessed = true;
+        document.extractedText = '';
+        await this.documentRepository.save(document);
+
+        return {
+          message: 'Document traité mais aucun texte extrait',
+          extractedText: '',
+        };
+      }
+
+      document.extractedText = extractedText;
+      document.isProcessed = true;
+      await this.documentRepository.save(document);
+
+      this.logger.log(
+        `Texte extrait avec succès (${extractedText.length} caractères)`,
+      );
+
+      return {
+        message: 'Document traité avec succès',
+        extractedText,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.error(
+        `Erreur lors du traitement OCR du document ${id}: ${errorMessage}`,
+      );
+      this.logger.error(error instanceof Error ? error.stack : '');
+
+      document.isProcessed = false;
+      await this.documentRepository.save(document);
+
+      throw new BadRequestException(
+        `Erreur lors du traitement OCR: ${errorMessage}`,
+      );
+    }
   }
 }

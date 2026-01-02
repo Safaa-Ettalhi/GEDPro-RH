@@ -173,7 +173,6 @@ export class SkillsService {
     return this.skillRepository.save(skill);
   }
 
-
   async findAll(
     organizationId: number,
     userId: number,
@@ -181,7 +180,9 @@ export class SkillsService {
   ): Promise<Skill[]> {
     await this.checkOrganizationAccess(organizationId, userId);
 
-    const where: any = { organizationId };
+    const where: Partial<Skill> & { organizationId: number } = {
+      organizationId,
+    };
     if (category) {
       where.category = category;
     }
@@ -191,7 +192,6 @@ export class SkillsService {
       order: { usageCount: 'DESC', name: 'ASC' },
     });
   }
-
 
   async findOne(
     id: number,
