@@ -61,11 +61,13 @@ jobs:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
         options: >-
+          --entrypoint /usr/bin/docker-entrypoint.sh
           --health-cmd "curl -f http://localhost:9000/minio/health/live"
           --health-interval 30s
           --health-timeout 20s
           --health-retries 3
-          server /data --console-address ":9001"
+          --
+          server /data
         ports:
           - 9000:9000
     
