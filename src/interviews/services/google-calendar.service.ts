@@ -190,7 +190,7 @@ export class GoogleCalendarService {
           ? interview.date
           : typeof interview.date === 'string'
             ? new Date(interview.date)
-            : new Date(interview.date as any);
+            : new Date(String(interview.date));
 
       if (isNaN(interviewDate.getTime())) {
         const dateStr =
@@ -303,7 +303,7 @@ export class GoogleCalendarService {
           ? interview.date
           : typeof interview.date === 'string'
             ? new Date(interview.date)
-            : new Date(interview.date as any);
+            : new Date(String(interview.date));
 
       if (isNaN(interviewDate.getTime())) {
         const dateStr =
@@ -418,7 +418,7 @@ export class GoogleCalendarService {
         this.logger.warn(
           `Format de date inattendu: ${typeof date}, valeur: ${dateStr}`,
         );
-        dateObj = new Date(date as any);
+        dateObj = new Date(String(date));
       }
 
       if (isNaN(dateObj.getTime())) {

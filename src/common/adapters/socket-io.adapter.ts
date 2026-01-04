@@ -11,6 +11,7 @@ export class SocketIOAdapter extends IoAdapter {
 
   createIOServer(port: number, options?: ServerOptions) {
     this.logger.log(`Création du serveur Socket.io sur le port ${port}`);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const server = super.createIOServer(port, {
       ...options,
       cors: {
@@ -22,13 +23,15 @@ export class SocketIOAdapter extends IoAdapter {
       allowEIO3: true,
     });
 
-    server.on('connection', (socket) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    server.on('connection', (socket: { id: string; nsp: { name: string } }) => {
       this.logger.log(
         `Connexion détectée au niveau du serveur principal: ${socket.id}, namespace: ${socket.nsp.name}`,
       );
     });
 
     this.logger.log(`Serveur Socket.io créé avec succès sur le port ${port}`);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return server;
   }
 }

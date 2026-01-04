@@ -19,6 +19,7 @@ import { NotificationsService } from './notifications.service';
 import { NotificationDto } from './dto/notification.dto';
 import { JWT_SECRET } from '../auth/constants/jwt.constants';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { Role } from '../common/enums/role.enum';
 
 interface AuthenticatedSocket extends Socket {
   userId?: number;
@@ -81,9 +82,9 @@ export class NotificationsGateway
         return;
       }
 
-      let payload;
+      let payload: { sub: number; role: string };
       try {
-        payload = this.jwtService.verify(token, {
+        payload = this.jwtService.verify<{ sub: number; role: string }>(token, {
           secret: JWT_SECRET,
         });
         this.logger.log(
@@ -145,26 +146,28 @@ export class NotificationsGateway
       }
       this.connectedUsers.get(client.userId)?.add(client.id);
 
-      client.join(`org:${client.organizationId}`);
-      client.join(`user:${client.userId}`);
+      void client.join(`org:${client.organizationId}`);
+      void client.join(`user:${client.userId}`);
 
       this.logger.log(
         `Client ${client.id} connecté (User: ${client.userId}, Org: ${client.organizationId})`,
       );
 
       try {
-        const userRole = payload.role;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const userRole = payload.role as Role;
         const unreadNotifications =
           await this.notificationsService.getUnreadNotifications(
             client.userId,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             userRole,
             client.organizationId,
           );
         this.logger.log(
           `Envoi de ${unreadNotifications.length} notification(s) non lue(s) au client ${client.id}`,
         );
-        client.emit('notifications:unread', unreadNotifications);
-      } catch (error) {
+        void client.emit('notifications:unread', unreadNotifications);
+      } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : 'Erreur inconnue';
         this.logger.error(
@@ -181,7 +184,7 @@ export class NotificationsGateway
       this.logger.error(`Stack trace: ${errorStack}`);
       try {
         client.disconnect();
-      } catch (disconnectError) {
+      } catch {
         // Ignorer les erreurs de déconnexion
       }
     }

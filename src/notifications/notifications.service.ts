@@ -107,7 +107,7 @@ export class NotificationsService {
     userRole: Role,
     organizationId: number,
   ): Promise<NotificationDto[]> {
-    const query: any = { organizationId, read: false };
+    const query: Record<string, any> = { organizationId, read: false };
 
     if (userRole !== Role.ADMIN && userRole !== Role.MANAGER) {
       // Les autres utilisateurs voient uniquement leurs notifications
@@ -115,6 +115,7 @@ export class NotificationsService {
     }
 
     const notifications = await this.notificationModel
+
       .find(query)
       .sort({ createdAt: -1 })
       .limit(50)
@@ -130,7 +131,7 @@ export class NotificationsService {
     limit = 50,
     skip = 0,
   ): Promise<{ notifications: NotificationDto[]; total: number }> {
-    const query: any = { organizationId };
+    const query: Record<string, any> = { organizationId };
 
     if (userRole === Role.ADMIN || userRole === Role.MANAGER) {
       this.logger.log(
@@ -142,11 +143,13 @@ export class NotificationsService {
 
     const [notifications, total] = await Promise.all([
       this.notificationModel
+
         .find(query)
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip(skip)
         .exec(),
+
       this.notificationModel.countDocuments(query),
     ]);
 
@@ -187,7 +190,7 @@ export class NotificationsService {
     userRole: Role,
     organizationId: number,
   ): Promise<number> {
-    const query: any = { organizationId, read: false };
+    const query: Record<string, any> = { organizationId, read: false };
 
     if (userRole !== Role.ADMIN && userRole !== Role.MANAGER) {
       query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
@@ -207,7 +210,9 @@ export class NotificationsService {
       candidateId: notification.candidateId,
       interviewId: notification.interviewId,
       read: notification.read,
-      createdAt: (notification as any).createdAt || new Date(),
+      createdAt:
+        (notification as NotificationDocument & { createdAt?: Date })
+          .createdAt || new Date(),
       metadata: notification.metadata,
     };
   }

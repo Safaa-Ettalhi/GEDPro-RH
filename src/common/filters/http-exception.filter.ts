@@ -29,8 +29,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = exceptionResponse;
         error = exception.name;
       } else {
-        message = (exceptionResponse as any).message || exception.message;
-        error = (exceptionResponse as any).error || exception.name;
+        const responseObj = exceptionResponse as {
+          message?: string | string[];
+          error?: string;
+        };
+        message = responseObj.message || exception.message;
+        error = responseObj.error || exception.name;
       }
     } else {
       // Erreur non gérée

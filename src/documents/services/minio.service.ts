@@ -92,10 +92,10 @@ export class MinioService implements OnModuleInit {
       );
       const chunks: Buffer[] = [];
 
-      return new Promise((resolve, reject) => {
-        dataStream.on('data', (chunk) => chunks.push(chunk));
+      return new Promise<Buffer>((resolve, reject) => {
+        dataStream.on('data', (chunk: Buffer) => chunks.push(chunk));
         dataStream.on('end', () => resolve(Buffer.concat(chunks)));
-        dataStream.on('error', (error) => reject(error));
+        dataStream.on('error', (error: Error) => reject(error));
       });
     } catch (error) {
       const errorMessage =

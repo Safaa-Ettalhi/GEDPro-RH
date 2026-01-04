@@ -22,15 +22,18 @@ describe('FormsService', () => {
             findOne: jest.fn(),
             find: jest.fn(),
             remove: jest.fn(),
-            createQueryBuilder: jest.fn(() => ({
-              leftJoinAndSelect: jest.fn().returnThis(),
-              where: jest.fn().returnThis(),
-              andWhere: jest.fn().returnThis(),
-              orderBy: jest.fn().returnThis(),
-              addOrderBy: jest.fn().returnThis(),
-              getMany: jest.fn(),
-              getOne: jest.fn(),
-            })),
+            createQueryBuilder: jest.fn(
+              () =>
+                ({
+                  leftJoinAndSelect: jest.fn().mockReturnThis(),
+                  where: jest.fn().mockReturnThis(),
+                  andWhere: jest.fn().mockReturnThis(),
+                  orderBy: jest.fn().mockReturnThis(),
+                  addOrderBy: jest.fn().mockReturnThis(),
+                  getMany: jest.fn(),
+                  getOne: jest.fn(),
+                }) as unknown,
+            ),
           },
         },
         {
@@ -40,11 +43,14 @@ describe('FormsService', () => {
             save: jest.fn(),
             findOne: jest.fn(),
             remove: jest.fn(),
-            createQueryBuilder: jest.fn(() => ({
-              where: jest.fn().returnThis(),
-              select: jest.fn().returnThis(),
-              getRawOne: jest.fn(),
-            })),
+            createQueryBuilder: jest.fn(
+              () =>
+                ({
+                  where: jest.fn().mockReturnThis(),
+                  select: jest.fn().mockReturnThis(),
+                  getRawOne: jest.fn(),
+                }) as unknown,
+            ),
           },
         },
         {
