@@ -8,19 +8,42 @@ import {
   Request,
   ParseIntPipe,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '../common/enums/role.enum';
+
 import type { RequestWithUser } from '../common/interfaces/user-request.interface';
 
+@ApiTags('notifications')
+@ApiBearerAuth('JWT-auth')
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Récupérer toutes les notifications' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiQuery({
+    name: 'limit',
+    type: Number,
+    required: false,
+    description: 'Nombre de résultats (défaut: 50)',
+  })
+  @ApiQuery({
+    name: 'skip',
+    type: Number,
+    required: false,
+    description: 'Nombre de résultats à ignorer (défaut: 0)',
+  })
+  @ApiResponse({ status: 200, description: 'Liste des notifications' })
   async getAll(
     @Request() req: RequestWithUser,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -37,6 +60,9 @@ export class NotificationsController {
   }
 
   @Get('unread')
+  @ApiOperation({ summary: 'Récupérer les notifications non lues' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Liste des notifications non lues' })
   async getUnread(
     @Request() req: RequestWithUser,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -49,6 +75,9 @@ export class NotificationsController {
   }
 
   @Get('count')
+  @ApiOperation({ summary: 'Récupérer le nombre de notifications non lues' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Nombre de notifications non lues' })
   async getUnreadCount(
     @Request() req: RequestWithUser,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -62,28 +91,31 @@ export class NotificationsController {
   }
 
   @Post(':id/read')
+  @ApiOperation({ summary: 'Marquer une notification comme lue' })
+  @ApiParam({ name: 'id', type: String, description: 'ID de la notification' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Notification marquée comme lue' })
   async markAsRead(
     @Param('id') id: string,
     @Request() req: RequestWithUser,
     @Query('organizationId', ParseIntPipe) organizationId: number,
   ) {
-    await this.notificationsService.markAsRead(
-      id,
-      req.user.id,
-      organizationId,
-    );
+    await this.notificationsService.markAsRead(id, req.user.id, organizationId);
     return { success: true };
   }
 
   @Post('read-all')
+  @ApiOperation({ summary: 'Marquer toutes les notifications comme lues' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Toutes les notifications marquées comme lues',
+  })
   async markAllAsRead(
     @Request() req: RequestWithUser,
     @Query('organizationId', ParseIntPipe) organizationId: number,
   ) {
-    await this.notificationsService.markAllAsRead(
-      req.user.id,
-      organizationId,
-    );
+    await this.notificationsService.markAllAsRead(req.user.id, organizationId);
     return { success: true };
   }
 }

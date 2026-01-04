@@ -64,14 +64,17 @@ export class NotificationsGateway
     this.logger.log(`=== NOUVELLE TENTATIVE DE CONNEXION ===`);
     this.logger.log(`Client ID: ${client.id}`);
     this.logger.log(`Query params: ${JSON.stringify(client.handshake.query)}`);
-    this.logger.log(`Headers authorization: ${client.handshake.headers.authorization || 'non fourni'}`);
+    this.logger.log(
+      `Headers authorization: ${client.handshake.headers.authorization || 'non fourni'}`,
     );
 
     try {
       // Authentifier le client via le token JWT
       const token = this.extractTokenFromSocket(client);
-      this.logger.log(`Token extrait pour le client ${client.id}: ${token ? 'Oui (longueur: ' + token.length + ')' : 'Non'}`);
-      
+      this.logger.log(
+        `Token extrait pour le client ${client.id}: ${token ? 'Oui (longueur: ' + token.length + ')' : 'Non'}`,
+      );
+
       if (!token) {
         this.logger.warn(`Client ${client.id} connecté sans token`);
         client.disconnect();
@@ -83,37 +86,49 @@ export class NotificationsGateway
         payload = this.jwtService.verify(token, {
           secret: JWT_SECRET,
         });
-        this.logger.log(`Token JWT vérifié pour le client ${client.id}, userId: ${payload.sub}`);
+        this.logger.log(
+          `Token JWT vérifié pour le client ${client.id}, userId: ${payload.sub}`,
+        );
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-        this.logger.error(`Erreur lors de la vérification du token JWT pour le client ${client.id}: ${errorMessage}`);
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.error(
+          `Erreur lors de la vérification du token JWT pour le client ${client.id}: ${errorMessage}`,
+        );
         client.disconnect();
         return;
       }
 
       client.userId = payload.sub;
 
-      // Récupérer l'organizationId depuis la query string ou la première organisation de l'utilisateur
       const orgIdFromQuery = client.handshake.query.organizationId as string;
-      this.logger.log(`organizationId depuis query: ${orgIdFromQuery || 'non fourni'}`);
-      
+      this.logger.log(
+        `organizationId depuis query: ${orgIdFromQuery || 'non fourni'}`,
+      );
+
       if (orgIdFromQuery) {
         client.organizationId = parseInt(orgIdFromQuery, 10);
       } else {
-        // Récupérer la première organisation de l'utilisateur
         try {
           const userOrg = await this.userOrganizationRepository.findOne({
             where: { userId: client.userId },
           });
           if (userOrg) {
             client.organizationId = userOrg.organizationId;
-            this.logger.log(`organizationId récupéré depuis la DB: ${client.organizationId}`);
+            this.logger.log(
+              `organizationId récupéré depuis la DB: ${client.organizationId}`,
+            );
           } else {
-            this.logger.warn(`Aucune organisation trouvée pour l'utilisateur ${client.userId}`);
+            this.logger.warn(
+              `Aucune organisation trouvée pour l'utilisateur ${client.userId}`,
+            );
           }
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-          this.logger.error(`Erreur lors de la récupération de l'organisation: ${errorMessage}`);
+          const errorMessage =
+            error instanceof Error ? error.message : 'Erreur inconnue';
+          this.logger.error(
+            `Erreur lors de la récupération de l'organisation: ${errorMessage}`,
+          );
         }
       }
 
@@ -125,13 +140,11 @@ export class NotificationsGateway
         return;
       }
 
-      // Enregistrer la connexion
       if (!this.connectedUsers.has(client.userId)) {
         this.connectedUsers.set(client.userId, new Set());
       }
       this.connectedUsers.get(client.userId)?.add(client.id);
 
-      // Rejoindre la room de l'organisation
       client.join(`org:${client.organizationId}`);
       client.join(`user:${client.userId}`);
 
@@ -139,9 +152,7 @@ export class NotificationsGateway
         `Client ${client.id} connecté (User: ${client.userId}, Org: ${client.organizationId})`,
       );
 
-      // Envoyer les notifications non lues
       try {
-        // Récupérer le rôle de l'utilisateur depuis le token
         const userRole = payload.role;
         const unreadNotifications =
           await this.notificationsService.getUnreadNotifications(
@@ -149,7 +160,9 @@ export class NotificationsGateway
             userRole,
             client.organizationId,
           );
-        this.logger.log(`Envoi de ${unreadNotifications.length} notification(s) non lue(s) au client ${client.id}`);
+        this.logger.log(
+          `Envoi de ${unreadNotifications.length} notification(s) non lue(s) au client ${client.id}`,
+        );
         client.emit('notifications:unread', unreadNotifications);
       } catch (error) {
         const errorMessage =
@@ -157,7 +170,6 @@ export class NotificationsGateway
         this.logger.error(
           `Erreur lors de la récupération des notifications non lues: ${errorMessage}`,
         );
-        // Ne pas déconnecter, juste logger l'erreur
       }
     } catch (error) {
       const errorMessage =
@@ -219,9 +231,7 @@ export class NotificationsGateway
 
   @SubscribeMessage('notifications:mark-all-read')
   @UseGuards(JwtAuthGuard)
-  async handleMarkAllAsRead(
-    @ConnectedSocket() client: AuthenticatedSocket,
-  ) {
+  async handleMarkAllAsRead(@ConnectedSocket() client: AuthenticatedSocket) {
     if (!client.userId || !client.organizationId) {
       return { success: false, error: 'Non authentifié' };
     }
@@ -248,12 +258,16 @@ export class NotificationsGateway
   sendToUser(userId: number, notification: NotificationDto) {
     const userSockets = this.connectedUsers.get(userId);
     if (userSockets && userSockets.size > 0) {
-      this.logger.log(`Envoi de notification à l'utilisateur ${userId} (${userSockets.size} socket(s) connecté(s))`);
+      this.logger.log(
+        `Envoi de notification à l'utilisateur ${userId} (${userSockets.size} socket(s) connecté(s))`,
+      );
       userSockets.forEach((socketId) => {
         this.server.to(socketId).emit('notification:new', notification);
       });
     } else {
-      this.logger.warn(`Utilisateur ${userId} non connecté au WebSocket. Notification sauvegardée mais non envoyée en temps réel.`);
+      this.logger.warn(
+        `Utilisateur ${userId} non connecté au WebSocket. Notification sauvegardée mais non envoyée en temps réel.`,
+      );
     }
   }
 
@@ -261,7 +275,9 @@ export class NotificationsGateway
    * Envoie une notification à tous les utilisateurs d'une organisation
    */
   sendToOrganization(organizationId: number, notification: NotificationDto) {
-    this.server.to(`org:${organizationId}`).emit('notification:new', notification);
+    this.server
+      .to(`org:${organizationId}`)
+      .emit('notification:new', notification);
   }
 
   /**
@@ -276,7 +292,9 @@ export class NotificationsGateway
       this.sendToUser(userId, notification);
     });
     // Également envoyer à la room de l'organisation pour les autres utilisateurs autorisés
-    this.server.to(`org:${organizationId}`).emit('notification:new', notification);
+    this.server
+      .to(`org:${organizationId}`)
+      .emit('notification:new', notification);
   }
 
   private extractTokenFromSocket(client: Socket): string | null {
@@ -284,7 +302,9 @@ export class NotificationsGateway
       // Essayer d'abord dans les query params
       const token = client.handshake.query.token as string;
       if (token && typeof token === 'string' && token.length > 0) {
-        this.logger.log(`Token trouvé dans query params pour le client ${client.id}`);
+        this.logger.log(
+          `Token trouvé dans query params pour le client ${client.id}`,
+        );
         return token;
       }
 
@@ -292,11 +312,15 @@ export class NotificationsGateway
       const authHeader = client.handshake.headers.authorization;
       if (authHeader && typeof authHeader === 'string') {
         if (authHeader.startsWith('Bearer ')) {
-          this.logger.log(`Token trouvé dans headers (Bearer) pour le client ${client.id}`);
+          this.logger.log(
+            `Token trouvé dans headers (Bearer) pour le client ${client.id}`,
+          );
           return authHeader.substring(7);
         } else {
           // Postman envoie parfois le token directement sans "Bearer "
-          this.logger.log(`Token trouvé dans headers (direct) pour le client ${client.id}`);
+          this.logger.log(
+            `Token trouvé dans headers (direct) pour le client ${client.id}`,
+          );
           return authHeader;
         }
       }
@@ -308,11 +332,16 @@ export class NotificationsGateway
         return authToken;
       }
 
-      this.logger.warn(`Aucun token trouvé pour le client ${client.id}. Query: ${JSON.stringify(client.handshake.query)}, Headers auth: ${client.handshake.headers.authorization || 'non fourni'}`);
+      this.logger.warn(
+        `Aucun token trouvé pour le client ${client.id}. Query: ${JSON.stringify(client.handshake.query)}, Headers auth: ${client.handshake.headers.authorization || 'non fourni'}`,
+      );
       return null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      this.logger.error(`Erreur lors de l'extraction du token: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.error(
+        `Erreur lors de l'extraction du token: ${errorMessage}`,
+      );
       return null;
     }
   }

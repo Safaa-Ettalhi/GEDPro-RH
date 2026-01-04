@@ -6,7 +6,7 @@ export type NotificationDocument = Notification & Document;
 
 @Schema({ timestamps: true })
 export class Notification {
-  @Prop({ required: true, enum: NotificationType })
+  @Prop({ required: true, enum: NotificationType, type: String })
   type: NotificationType;
 
   @Prop({ required: true })

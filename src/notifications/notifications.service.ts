@@ -123,7 +123,6 @@ export class NotificationsService {
     return notifications.map((n) => this.toDto(n));
   }
 
-
   async getAllNotifications(
     userId: number,
     userRole: Role,

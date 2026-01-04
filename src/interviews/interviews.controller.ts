@@ -11,6 +11,15 @@ import {
   ParseIntPipe,
   Query,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 import { InterviewsService } from './interviews.service';
 import { GoogleCalendarService } from './services/google-calendar.service';
 import { CreateInterviewDto } from './dto/create-interview.dto';
@@ -22,6 +31,8 @@ import { Role } from '../common/enums/role.enum';
 import { InterviewStatus } from '../common/enums/interview-status.enum';
 import type { RequestWithUser } from '../common/interfaces/user-request.interface';
 
+@ApiTags('interviews')
+@ApiBearerAuth('JWT-auth')
 @Controller('interviews')
 @UseGuards(JwtAuthGuard)
 export class InterviewsController {
@@ -33,6 +44,12 @@ export class InterviewsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Créer un nouvel entretien' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiBody({ type: CreateInterviewDto })
+  @ApiResponse({ status: 201, description: 'Entretien créé avec succès' })
+  @ApiResponse({ status: 400, description: 'Date invalide ou dans le passé' })
+  @ApiResponse({ status: 404, description: 'Candidat introuvable' })
   create(
     @Body() createInterviewDto: CreateInterviewDto,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -46,6 +63,23 @@ export class InterviewsController {
   }
 
   @Get()
+  @ApiOperation({ summary: "Récupérer tous les entretiens d'une organisation" })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiQuery({ name: 'candidateId', type: Number, required: false })
+  @ApiQuery({ name: 'status', enum: InterviewStatus, required: false })
+  @ApiQuery({
+    name: 'dateFrom',
+    type: String,
+    required: false,
+    description: 'Format: YYYY-MM-DD',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    type: String,
+    required: false,
+    description: 'Format: YYYY-MM-DD',
+  })
+  @ApiResponse({ status: 200, description: 'Liste des entretiens' })
   findAll(
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Query('candidateId') candidateId: string,
@@ -85,6 +119,10 @@ export class InterviewsController {
   }
 
   @Get('candidates/:candidateId')
+  @ApiOperation({ summary: "Récupérer tous les entretiens d'un candidat" })
+  @ApiParam({ name: 'candidateId', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Liste des entretiens du candidat' })
   getCandidateInterviews(
     @Param('candidateId', ParseIntPipe) candidateId: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -98,6 +136,11 @@ export class InterviewsController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Récupérer un entretien par son ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Entretien trouvé' })
+  @ApiResponse({ status: 404, description: 'Entretien introuvable' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -109,6 +152,12 @@ export class InterviewsController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Modifier un entretien' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiBody({ type: UpdateInterviewDto })
+  @ApiResponse({ status: 200, description: 'Entretien modifié avec succès' })
+  @ApiResponse({ status: 404, description: 'Entretien introuvable' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateInterviewDto: UpdateInterviewDto,
@@ -126,6 +175,11 @@ export class InterviewsController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Supprimer un entretien' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Entretien supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Entretien introuvable' })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
@@ -137,6 +191,9 @@ export class InterviewsController {
   @Get('calendar/auth-url')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: "Obtenir l'URL d'authentification Google Calendar" })
+  @ApiResponse({ status: 200, description: "URL d'authentification" })
+  @ApiResponse({ status: 400, description: 'Google Calendar non configuré' })
   getCalendarAuthUrl() {
     try {
       const authUrl = this.googleCalendarService.getAuthUrl();
@@ -154,6 +211,10 @@ export class InterviewsController {
   @Get('calendar/info')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({
+    summary: 'Obtenir les informations de configuration Google Calendar',
+  })
+  @ApiResponse({ status: 200, description: 'Informations de configuration' })
   async getCalendarInfo() {
     return this.googleCalendarService.getCalendarInfo();
   }
@@ -161,6 +222,11 @@ export class InterviewsController {
   @Post(':id/sync-calendar')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Synchroniser un entretien avec Google Calendar' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Synchronisation réussie' })
+  @ApiResponse({ status: 400, description: 'Google Calendar non configuré' })
   async syncWithCalendar(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
