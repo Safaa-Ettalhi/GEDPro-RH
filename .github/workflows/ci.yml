@@ -116,7 +116,7 @@ jobs:
           echo "All services are ready"
       
       - name: Run unit tests
-        run: timeout 5m npm run test -- --maxWorkers=2 || (echo "Tests timed out or failed" && exit 1)
+        run: timeout 3m npm run test -- --maxWorkers=4 --silent || (echo "Tests timed out or failed" && exit 1)
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -135,7 +135,7 @@ jobs:
           NODE_ENV: test
       
       - name: Run E2E tests
-        run: timeout 5m npm run test:e2e || (echo "E2E tests timed out or failed" && exit 1)
+        run: timeout 3m npm run test:e2e || (echo "E2E tests timed out or failed" && exit 1)
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -154,7 +154,7 @@ jobs:
           NODE_ENV: test
       
       - name: Generate coverage report
-        run: timeout 5m npm run test:cov -- --maxWorkers=2 || (echo "Coverage tests timed out or failed" && exit 1)
+        run: timeout 3m npm run test:cov -- --maxWorkers=4 || (echo "Coverage tests timed out or failed" && exit 1)
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
