@@ -23,7 +23,19 @@
 
 ## Description
 
-Système de Gestion Electronique de Documents (GED) pour les Ressources Humaines - Application NestJS avec authentification JWT, PostgreSQL et MongoDB.
+**GEDPro** - Plateforme GED RH Intelligente
+
+Système de Gestion Electronique de Documents (GED) pour les Ressources Humaines - Application NestJS moderne, sécurisée et intelligente avec authentification JWT, PostgreSQL, MongoDB et MinIO.
+
+### Fonctionnalités principales
+
+- ✅ **Gestion des candidats** avec états et historique
+- ✅ **Formulaires dynamiques** personnalisables
+- ✅ **Gestion documentaire** avec OCR et extraction de compétences
+- ✅ **Entretiens** avec synchronisation Google Calendar
+- ✅ **Notifications temps réel** via WebSocket
+- ✅ **Multi-tenant** avec isolation par organisation
+- ✅ **API REST** documentée avec Swagger
 
 ## Prérequis
 
@@ -121,18 +133,34 @@ docker-compose stop
 docker-compose down -v
 ```
 
-## Run tests
+## Documentation API
+
+Une fois l'application démarrée, accédez à la documentation Swagger sur :
+- **Swagger UI**: http://localhost:3000/api
+
+## Tests
 
 ```bash
-# unit tests
+# Tests unitaires
 $ npm run test
 
-# e2e tests
+# Tests en mode watch
+$ npm run test:watch
+
+# Tests E2E
 $ npm run test:e2e
 
-# test coverage
+# Couverture de code
 $ npm run test:cov
 ```
+
+## Documentation technique
+
+Consultez la documentation complète dans le dossier `docs/` :
+
+- [Architecture](docs/ARCHITECTURE.md) - Description de l'architecture de l'application
+- [Installation](docs/INSTALLATION.md) - Guide d'installation et de configuration
+- [Dépendances](docs/DEPENDENCIES.md) - Documentation des bibliothèques utilisées
 
 ## Deployment
 
@@ -160,16 +188,48 @@ Check out a few resources that may come in handy when working with NestJS:
 - To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
 - Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
-## Support
+## CI/CD
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Le projet utilise GitHub Actions pour l'intégration continue :
 
-## Stay in touch
+- **Lint**: Vérification du code avec ESLint
+- **Tests**: Exécution des tests unitaires et E2E
+- **Build**: Compilation de l'application
+- **Coverage**: Génération du rapport de couverture de code
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Voir le workflow dans `.github/workflows/ci.yml`
+
+## Structure du projet
+
+```
+src/
+├── auth/              # Authentification et autorisation
+├── candidates/        # Gestion des candidats
+├── documents/         # Gestion documentaire et OCR
+├── forms/             # Formulaires dynamiques
+├── interviews/        # Gestion des entretiens
+├── notifications/     # Notifications temps réel
+├── organizations/     # Gestion des organisations
+├── skills/            # Gestion des compétences
+├── users/             # Gestion des utilisateurs
+├── common/            # Utilitaires partagés
+└── main.ts            # Point d'entrée de l'application
+```
+
+## Technologies utilisées
+
+- **NestJS 11** - Framework Node.js
+- **PostgreSQL 16** - Base de données relationnelle
+- **MongoDB 7** - Base de données NoSQL
+- **MinIO** - Stockage d'objets
+- **TypeORM** - ORM pour PostgreSQL
+- **Mongoose** - ODM pour MongoDB
+- **JWT** - Authentification
+- **Socket.io** - WebSocket pour notifications
+- **Tesseract.js** - OCR
+- **Google Calendar API** - Synchronisation calendrier
+- **Swagger** - Documentation API
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Ce projet est sous licence UNLICENSED.
