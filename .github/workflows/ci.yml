@@ -55,22 +55,6 @@ jobs:
         ports:
           - 27017:27017
       
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --entrypoint /usr/bin/docker-entrypoint.sh
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 30s
-          --health-timeout 20s
-          --health-retries 3
-          --
-          server /data
-        ports:
-          - 9000:9000
-    
     steps:
       - uses: actions/checkout@v4
       
@@ -82,6 +66,30 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
+      
+      - name: Start MinIO
+        run: |
+          docker stop minio-ci 2>/dev/null || true
+          docker rm minio-ci 2>/dev/null || true
+          docker run -d \
+            --name minio-ci \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data
+      
+      - name: Wait for MinIO to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:9000/minio/health/live 2>/dev/null; then
+              echo "MinIO is ready"
+              exit 0
+            fi
+            echo "Waiting for MinIO... ($i/30)"
+            sleep 2
+          done
+          echo "MinIO did not become ready in time"
+          exit 1
       
       - name: Run unit tests
         run: npm run test
