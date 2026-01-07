@@ -154,12 +154,10 @@ export class NotificationsGateway
       );
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const userRole = payload.role as Role;
         const unreadNotifications =
           await this.notificationsService.getUnreadNotifications(
             client.userId,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             userRole,
             client.organizationId,
           );
