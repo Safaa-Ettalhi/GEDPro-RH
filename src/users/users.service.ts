@@ -18,7 +18,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async findAll(): Promise<Omit<User, 'password'>[]> {
     const users = await this.userRepository.find({
@@ -29,7 +29,10 @@ export class UsersService {
   }
 
   async findOne(id: number): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['userOrganizations', 'userOrganizations.organization']
+    });
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
     }
