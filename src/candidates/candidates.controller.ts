@@ -59,14 +59,17 @@ export class CandidatesController {
   }
 
   @Get()
-  @ApiOperation({ summary: "Récupérer tous les candidats d'une organisation" })
-  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiOperation({
+    summary:
+      "Récupérer tous les candidats d'une organisation (ou tous les candidats pour ADMIN)",
+  })
+  @ApiQuery({ name: 'organizationId', type: Number, required: false })
   @ApiQuery({ name: 'state', enum: CandidateState, required: false })
   @ApiQuery({ name: 'jobOfferId', type: Number, required: false })
   @ApiQuery({ name: 'formId', type: Number, required: false })
   @ApiResponse({ status: 200, description: 'Liste des candidats' })
   findAll(
-    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Query('organizationId') organizationId: string | undefined,
     @Query('state') state: CandidateState,
     @Query('jobOfferId') jobOfferId: string,
     @Query('formId') formId: string,
@@ -90,9 +93,12 @@ export class CandidatesController {
       filters.formId = parseInt(formId, 10);
     }
 
+    const orgId = organizationId ? parseInt(organizationId, 10) : undefined;
+
     return this.candidatesService.findAll(
-      organizationId,
+      orgId,
       req.user.id,
+      req.user.role,
       Object.keys(filters).length > 0 ? filters : undefined,
     );
   }
