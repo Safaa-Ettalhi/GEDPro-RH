@@ -192,14 +192,49 @@ export class CandidatesService {
   }
 
   async findAll(
-    organizationId: number,
+    organizationId: number | undefined,
     userId: number,
+    userRole: Role,
     filters?: {
       state?: CandidateState;
       jobOfferId?: number;
       formId?: number;
     },
   ): Promise<Candidate[]> {
+    // Si l'utilisateur est ADMIN et qu'aucun organizationId n'est fourni, retourner tous les candidats
+    if (userRole === Role.ADMIN && !organizationId) {
+      const queryBuilder = this.candidateRepository
+        .createQueryBuilder('candidate')
+        .leftJoinAndSelect('candidate.jobOffer', 'jobOffer')
+        .leftJoinAndSelect('candidate.form', 'form')
+        .leftJoinAndSelect('candidate.organization', 'organization');
+
+      if (filters?.state) {
+        queryBuilder.andWhere('candidate.state = :state', {
+          state: filters.state,
+        });
+      }
+
+      if (filters?.jobOfferId) {
+        queryBuilder.andWhere('candidate.jobOfferId = :jobOfferId', {
+          jobOfferId: filters.jobOfferId,
+        });
+      }
+
+      if (filters?.formId) {
+        queryBuilder.andWhere('candidate.formId = :formId', {
+          formId: filters.formId,
+        });
+      }
+
+      return queryBuilder.orderBy('candidate.createdAt', 'DESC').getMany();
+    }
+
+    // Pour les autres rôles, organizationId est requis
+    if (!organizationId) {
+      throw new BadRequestException('organizationId est requis pour votre rôle');
+    }
+
     await this.checkOrganizationAccess(organizationId, userId);
 
     const queryBuilder = this.candidateRepository
