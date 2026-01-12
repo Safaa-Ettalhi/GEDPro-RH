@@ -42,7 +42,7 @@ export class AuthService {
     const user = this.userRepository.create({
       name: createUserDto.name,
       email: createUserDto.email,
-      role: createUserDto.role || Role.USER,
+      role: createUserDto.role || Role.CANDIDATE,
       password: hashedPassword,
     });
 

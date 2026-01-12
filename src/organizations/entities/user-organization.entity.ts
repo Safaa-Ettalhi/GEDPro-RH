@@ -34,7 +34,7 @@ export class UserOrganization {
   @Column({
     type: 'varchar',
     length: 20,
-    default: Role.USER,
+    default: Role.CANDIDATE,
   })
   role: Role;
 

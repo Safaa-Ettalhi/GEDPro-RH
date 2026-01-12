@@ -41,7 +41,7 @@ export class FormsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Créer un nouveau formulaire' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateFormDto })
@@ -110,7 +110,7 @@ export class FormsController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Modifier un formulaire' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -132,7 +132,7 @@ export class FormsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Supprimer un formulaire' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -147,7 +147,7 @@ export class FormsController {
 
   @Post(':id/fields')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Ajouter un champ à un formulaire' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -169,7 +169,7 @@ export class FormsController {
 
   @Patch(':id/fields/:fieldId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Modifier un champ d'un formulaire" })
   @ApiParam({ name: 'id', type: Number })
   @ApiParam({ name: 'fieldId', type: Number })
@@ -194,7 +194,7 @@ export class FormsController {
 
   @Delete(':id/fields/:fieldId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Supprimer un champ d'un formulaire" })
   @ApiParam({ name: 'id', type: Number })
   @ApiParam({ name: 'fieldId', type: Number })
@@ -216,7 +216,7 @@ export class FormsController {
 
   @Post('job-offers')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Créer une nouvelle offre d'emploi" })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateJobOfferDto })
@@ -235,7 +235,7 @@ export class FormsController {
 
   @Patch('job-offers/:id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Modifier une offre d'emploi" })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -260,7 +260,7 @@ export class FormsController {
 
   @Delete('job-offers/:id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Supprimer une offre d'emploi" })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })

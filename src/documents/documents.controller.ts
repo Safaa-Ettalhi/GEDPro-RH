@@ -44,7 +44,7 @@ export class DocumentsController {
 
   @Post('upload')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER, Role.USER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Uploader un document' })
   @ApiConsumes('multipart/form-data')
@@ -181,7 +181,7 @@ export class DocumentsController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Modifier un document' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -204,7 +204,7 @@ export class DocumentsController {
 
   @Post(':id/process')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER, Role.USER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
   @ApiOperation({ summary: 'Traiter un document avec OCR' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -224,7 +224,7 @@ export class DocumentsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Supprimer un document' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })

@@ -43,7 +43,7 @@ export class InterviewsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Créer un nouvel entretien' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateInterviewDto })
@@ -151,7 +151,7 @@ export class InterviewsController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Modifier un entretien' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -174,7 +174,7 @@ export class InterviewsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Supprimer un entretien' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -190,7 +190,7 @@ export class InterviewsController {
 
   @Get('calendar/auth-url')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Obtenir l'URL d'authentification Google Calendar" })
   @ApiResponse({ status: 200, description: "URL d'authentification" })
   @ApiResponse({ status: 400, description: 'Google Calendar non configuré' })
@@ -210,7 +210,7 @@ export class InterviewsController {
 
   @Get('calendar/info')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({
     summary: 'Obtenir les informations de configuration Google Calendar',
   })
@@ -221,7 +221,7 @@ export class InterviewsController {
 
   @Post(':id/sync-calendar')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Synchroniser un entretien avec Google Calendar' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })

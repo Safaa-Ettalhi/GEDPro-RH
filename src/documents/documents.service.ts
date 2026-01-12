@@ -39,7 +39,7 @@ export class DocumentsService {
   private async checkOrganizationAccess(
     organizationId: number,
     userId: number,
-    requiredRoles: Role[] = [Role.ADMIN, Role.MANAGER, Role.USER],
+    requiredRoles: Role[] = [Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE],
   ): Promise<UserOrganization> {
     const userOrg = await this.userOrganizationRepository.findOne({
       where: { organizationId, userId },
@@ -112,7 +112,7 @@ export class DocumentsService {
       const rhUsers = await this.userOrganizationRepository.find({
         where: {
           organizationId,
-          role: In([Role.ADMIN, Role.MANAGER]),
+          role: In([Role.ADMIN, Role.RH, Role.MANAGER]),
         },
         relations: ['user'],
       });

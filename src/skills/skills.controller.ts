@@ -39,7 +39,7 @@ export class SkillsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Créer une nouvelle compétence' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateSkillDto })
@@ -87,7 +87,7 @@ export class SkillsController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Modifier une compétence' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -109,7 +109,7 @@ export class SkillsController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Supprimer une compétence' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -144,7 +144,7 @@ export class SkillsController {
 
   @Post('search/candidates')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER, Role.USER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
   @ApiOperation({ summary: 'Rechercher des candidats par compétences' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({
@@ -177,7 +177,7 @@ export class SkillsController {
 
   @Post('candidates/:candidateId/skills')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Associer une compétence à un candidat' })
   @ApiParam({ name: 'candidateId', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -200,7 +200,7 @@ export class SkillsController {
 
   @Delete('candidates/:candidateId/skills/:skillId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Retirer une compétence d'un candidat" })
   @ApiParam({ name: 'candidateId', type: Number })
   @ApiParam({ name: 'skillId', type: Number })

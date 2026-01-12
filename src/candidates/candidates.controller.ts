@@ -40,7 +40,7 @@ export class CandidatesController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER, Role.USER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
   @ApiOperation({ summary: 'Créer un nouveau candidat' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiResponse({ status: 201, description: 'Candidat créé avec succès' })
@@ -113,7 +113,7 @@ export class CandidatesController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCandidateDto: UpdateCandidateDto,
@@ -130,7 +130,7 @@ export class CandidatesController {
 
   @Patch(':id/state')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Changer l'état d'un candidat" })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -179,7 +179,7 @@ export class CandidatesController {
 
   @Post(':id/documents/:documentId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER, Role.USER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
   associateDocument(
     @Param('id', ParseIntPipe) candidateId: number,
     @Param('documentId', ParseIntPipe) documentId: number,
@@ -196,7 +196,7 @@ export class CandidatesController {
 
   @Delete(':id/documents/:documentId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   removeDocument(
     @Param('id', ParseIntPipe) candidateId: number,
     @Param('documentId', ParseIntPipe) documentId: number,
@@ -213,7 +213,7 @@ export class CandidatesController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   remove(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,

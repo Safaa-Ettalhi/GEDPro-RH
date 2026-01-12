@@ -109,7 +109,7 @@ export class NotificationsService {
   ): Promise<NotificationDto[]> {
     const query: Record<string, any> = { organizationId, read: false };
 
-    if (userRole !== Role.ADMIN && userRole !== Role.MANAGER) {
+    if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
       // Les autres utilisateurs voient uniquement leurs notifications
       query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
     }
@@ -133,7 +133,7 @@ export class NotificationsService {
   ): Promise<{ notifications: NotificationDto[]; total: number }> {
     const query: Record<string, any> = { organizationId };
 
-    if (userRole === Role.ADMIN || userRole === Role.MANAGER) {
+    if (userRole === Role.ADMIN || userRole === Role.RH || userRole === Role.MANAGER) {
       this.logger.log(
         `Récupération de toutes les notifications de l'organisation ${organizationId} pour ${userRole}`,
       );
@@ -192,7 +192,7 @@ export class NotificationsService {
   ): Promise<number> {
     const query: Record<string, any> = { organizationId, read: false };
 
-    if (userRole !== Role.ADMIN && userRole !== Role.MANAGER) {
+    if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
       query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
     }
 

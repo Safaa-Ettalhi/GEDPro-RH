@@ -35,7 +35,7 @@ export class FormsService {
   private async checkOrganizationAccess(
     organizationId: number,
     userId: number,
-    requiredRoles: Role[] = [Role.ADMIN, Role.MANAGER],
+    requiredRoles: Role[] = [Role.ADMIN, Role.RH, Role.MANAGER],
   ): Promise<UserOrganization> {
     const userOrg = await this.userOrganizationRepository.findOne({
       where: { organizationId, userId },
@@ -101,7 +101,7 @@ export class FormsService {
     await this.checkOrganizationAccess(organizationId, userId, [
       Role.ADMIN,
       Role.MANAGER,
-      Role.USER,
+      Role.CANDIDATE,
     ]);
 
     return this.formRepository
@@ -121,7 +121,7 @@ export class FormsService {
     await this.checkOrganizationAccess(organizationId, userId, [
       Role.ADMIN,
       Role.MANAGER,
-      Role.USER,
+      Role.CANDIDATE,
     ]);
 
     const form = await this.formRepository
@@ -316,7 +316,7 @@ export class FormsService {
     await this.checkOrganizationAccess(organizationId, userId, [
       Role.ADMIN,
       Role.MANAGER,
-      Role.USER,
+      Role.CANDIDATE,
     ]);
 
     return this.jobOfferRepository.find({
@@ -334,7 +334,7 @@ export class FormsService {
     await this.checkOrganizationAccess(organizationId, userId, [
       Role.ADMIN,
       Role.MANAGER,
-      Role.USER,
+      Role.CANDIDATE,
     ]);
 
     const jobOffer = await this.jobOfferRepository.findOne({
