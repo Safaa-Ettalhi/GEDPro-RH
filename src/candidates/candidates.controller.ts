@@ -60,8 +60,7 @@ export class CandidatesController {
 
   @Get()
   @ApiOperation({
-    summary:
-      "Récupérer tous les candidats d'une organisation (ou tous les candidats pour ADMIN)",
+    summary: "Récupérer les candidats de l'organisation de l'utilisateur",
   })
   @ApiQuery({ name: 'organizationId', type: Number, required: false })
   @ApiQuery({ name: 'state', enum: CandidateState, required: false })
