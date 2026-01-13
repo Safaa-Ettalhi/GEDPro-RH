@@ -201,47 +201,31 @@ export class CandidatesService {
       formId?: number;
     },
   ): Promise<Candidate[]> {
-    // Si l'utilisateur est ADMIN et qu'aucun organizationId n'est fourni, retourner tous les candidats
-    if (userRole === Role.ADMIN && !organizationId) {
-      const queryBuilder = this.candidateRepository
-        .createQueryBuilder('candidate')
-        .leftJoinAndSelect('candidate.jobOffer', 'jobOffer')
-        .leftJoinAndSelect('candidate.form', 'form')
-        .leftJoinAndSelect('candidate.organization', 'organization');
+    let finalOrganizationId = organizationId;
 
-      if (filters?.state) {
-        queryBuilder.andWhere('candidate.state = :state', {
-          state: filters.state,
-        });
+    if (!finalOrganizationId) {
+      const userOrg = await this.userOrganizationRepository.findOne({
+        where: { userId },
+      });
+
+      if (!userOrg) {
+        throw new BadRequestException(
+          "Vous n'appartenez à aucune organisation",
+        );
       }
 
-      if (filters?.jobOfferId) {
-        queryBuilder.andWhere('candidate.jobOfferId = :jobOfferId', {
-          jobOfferId: filters.jobOfferId,
-        });
-      }
-
-      if (filters?.formId) {
-        queryBuilder.andWhere('candidate.formId = :formId', {
-          formId: filters.formId,
-        });
-      }
-
-      return queryBuilder.orderBy('candidate.createdAt', 'DESC').getMany();
+      finalOrganizationId = userOrg.organizationId;
     }
 
-    // Pour les autres rôles, organizationId est requis
-    if (!organizationId) {
-      throw new BadRequestException('organizationId est requis pour votre rôle');
-    }
-
-    await this.checkOrganizationAccess(organizationId, userId);
+    await this.checkOrganizationAccess(finalOrganizationId, userId);
 
     const queryBuilder = this.candidateRepository
       .createQueryBuilder('candidate')
       .leftJoinAndSelect('candidate.jobOffer', 'jobOffer')
       .leftJoinAndSelect('candidate.form', 'form')
-      .where('candidate.organizationId = :organizationId', { organizationId });
+      .where('candidate.organizationId = :organizationId', {
+        organizationId: finalOrganizationId,
+      });
 
     if (filters?.state) {
       queryBuilder.andWhere('candidate.state = :state', {
