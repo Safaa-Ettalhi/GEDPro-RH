@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Delete,
   Body,
@@ -18,6 +19,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { CreateUserDto } from '../auth/dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
@@ -37,14 +39,30 @@ export class UsersController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: 'Récupérer tous les utilisateurs' })
+  @ApiOperation({
+    summary: "Récupérer les utilisateurs de l'organisation de l'admin",
+  })
   @ApiResponse({ status: 200, description: 'Liste des utilisateurs' })
   @ApiResponse({
     status: 403,
     description: 'Accès refusé - Admin ou Manager requis',
   })
-  async findAll() {
-    return this.usersService.findAll();
+  async findAll(@Request() req: RequestWithUser) {
+    return await this.usersService.findAll(req.user.id);
+  }
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: "Créer un nouvel utilisateur (réservé à l'admin)" })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
+  @ApiResponse({ status: 403, description: 'Accès refusé - Admin requis' })
+  async create(
+    @Body() createUserDto: CreateUserDto,
+    @Request() req: RequestWithUser,
+  ) {
+    return await this.usersService.create(createUserDto, req.user.id);
   }
 
   @Get('me')
@@ -53,7 +71,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 200, description: "Informations de l'utilisateur" })
   async getMe(@Request() req: RequestWithUser) {
-    return this.usersService.findOne(req.user.sub);
+    return await this.usersService.findOne(req.user.sub);
   }
 
   @Get('role/:role')
@@ -66,7 +84,7 @@ export class UsersController {
     description: 'Liste des utilisateurs avec ce rôle',
   })
   async getUsersByRole(@Param('role') role: Role) {
-    return this.usersService.getUsersByRole(role);
+    return await this.usersService.getUsersByRole(role);
   }
 
   @Get(':id')
@@ -77,7 +95,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Utilisateur trouvé' })
   @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findOne(id);
+    return await this.usersService.findOne(id);
   }
 
   @Put('me')
@@ -90,7 +108,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.update(req.user.sub, updateUserDto);
+    return await this.usersService.update(req.user.sub, updateUserDto);
   }
 
   @Put(':id')
@@ -105,7 +123,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return await this.usersService.update(id, updateUserDto);
   }
 
   @Put('me/password')
@@ -119,7 +137,10 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Body() updatePasswordDto: UpdatePasswordDto,
   ) {
-    return this.usersService.updatePassword(req.user.sub, updatePasswordDto);
+    return await this.usersService.updatePassword(
+      req.user.sub,
+      updatePasswordDto,
+    );
   }
 
   @Put(':id/role')
@@ -133,8 +154,9 @@ export class UsersController {
   async changeRole(
     @Param('id', ParseIntPipe) id: number,
     @Body() changeRoleDto: ChangeRoleDto,
+    @Request() req: RequestWithUser,
   ) {
-    return this.usersService.changeRole(id, changeRoleDto);
+    return await this.usersService.changeRole(id, changeRoleDto, req.user.id);
   }
 
   @Delete(':id')
@@ -148,6 +170,6 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.usersService.remove(id, req.user.sub);
+    return await this.usersService.remove(id, req.user.id);
   }
 }
