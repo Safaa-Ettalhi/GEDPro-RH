@@ -10,6 +10,7 @@ import { Repository, In } from 'typeorm';
 import { Document } from './entities/document.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { CandidateDocument } from '../candidates/entities/candidate-document.entity';
 import { MinioService } from './services/minio.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -30,6 +31,8 @@ export class DocumentsService {
     private organizationRepository: Repository<Organization>,
     @InjectRepository(UserOrganization)
     private userOrganizationRepository: Repository<UserOrganization>,
+    @InjectRepository(CandidateDocument)
+    private candidateDocumentRepository: Repository<CandidateDocument>,
     private minioService: MinioService,
     private ocrService: OcrService,
     private skillsService: SkillsService,
@@ -107,7 +110,6 @@ export class DocumentsService {
 
     const savedDocument = await this.documentRepository.save(document);
 
-    // Notifier les ADMIN et MANAGER de l'upload
     try {
       const rhUsers = await this.userOrganizationRepository.find({
         where: {
@@ -280,6 +282,43 @@ export class DocumentsService {
         `Texte extrait du document ${documentId} (${extractedText.length} caractères)`,
       );
 
+      // Extraire les compétences pour tous les candidats associés à ce document
+      try {
+        const candidateDocuments = await this.candidateDocumentRepository.find({
+          where: { documentId },
+          relations: ['candidate'],
+        });
+
+        if (candidateDocuments.length > 0) {
+          this.logger.log(
+            `Extraction des compétences pour ${candidateDocuments.length} candidat(s) associé(s) au document ${documentId}`,
+          );
+
+          for (const candidateDoc of candidateDocuments) {
+            await this.skillsService
+              .extractAndAssociateSkills(
+                extractedText,
+                candidateDoc.candidateId,
+                documentId,
+                document.organizationId,
+              )
+              .catch((error: unknown) => {
+                const errorMessage =
+                  error instanceof Error ? error.message : 'Erreur inconnue';
+                this.logger.error(
+                  `Erreur lors de l'extraction des compétences pour le candidat ${candidateDoc.candidateId} et le document ${documentId}: ${errorMessage}`,
+                );
+              });
+          }
+        }
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.warn(
+          `Erreur lors de l'extraction des compétences pour le document ${documentId}: ${errorMessage}`,
+        );
+      }
+
       // Notifier l'utilisateur qui a uploadé le document que le traitement est terminé
       try {
         if (document.uploadedBy && document.organizationId) {
@@ -366,6 +405,43 @@ export class DocumentsService {
       this.logger.log(
         `Texte extrait avec succès (${extractedText.length} caractères)`,
       );
+
+      // Extraire les compétences pour tous les candidats associés à ce document
+      try {
+        const candidateDocuments = await this.candidateDocumentRepository.find({
+          where: { documentId: id },
+          relations: ['candidate'],
+        });
+
+        if (candidateDocuments.length > 0) {
+          this.logger.log(
+            `Extraction des compétences pour ${candidateDocuments.length} candidat(s) associé(s) au document ${id}`,
+          );
+
+          for (const candidateDoc of candidateDocuments) {
+            await this.skillsService
+              .extractAndAssociateSkills(
+                extractedText,
+                candidateDoc.candidateId,
+                id,
+                organizationId,
+              )
+              .catch((error: unknown) => {
+                const errorMessage =
+                  error instanceof Error ? error.message : 'Erreur inconnue';
+                this.logger.error(
+                  `Erreur lors de l'extraction des compétences pour le candidat ${candidateDoc.candidateId} et le document ${id}: ${errorMessage}`,
+                );
+              });
+          }
+        }
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Erreur inconnue';
+        this.logger.warn(
+          `Erreur lors de l'extraction des compétences pour le document ${id}: ${errorMessage}`,
+        );
+      }
 
       return {
         message: 'Document traité avec succès',
