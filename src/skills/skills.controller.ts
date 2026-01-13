@@ -44,12 +44,12 @@ export class SkillsController {
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateSkillDto })
   @ApiResponse({ status: 201, description: 'Compétence créée avec succès' })
-  create(
+  async create(
     @Body() createSkillDto: CreateSkillDto,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.create(
+    return await this.skillsService.create(
       createSkillDto,
       organizationId,
       req.user.id,
@@ -63,12 +63,16 @@ export class SkillsController {
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiQuery({ name: 'category', type: String, required: false })
   @ApiResponse({ status: 200, description: 'Liste des compétences' })
-  findAll(
+  async findAll(
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Query('category') category: string,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.findAll(organizationId, req.user.id, category);
+    return await this.skillsService.findAll(
+      organizationId,
+      req.user.id,
+      category,
+    );
   }
 
   @Get(':id')
@@ -77,12 +81,12 @@ export class SkillsController {
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiResponse({ status: 200, description: 'Compétence trouvée' })
   @ApiResponse({ status: 404, description: 'Compétence introuvable' })
-  findOne(
+  async findOne(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.findOne(id, organizationId, req.user.id);
+    return await this.skillsService.findOne(id, organizationId, req.user.id);
   }
 
   @Patch(':id')
@@ -93,13 +97,13 @@ export class SkillsController {
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: UpdateSkillDto })
   @ApiResponse({ status: 200, description: 'Compétence modifiée avec succès' })
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSkillDto: UpdateSkillDto,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.update(
+    return await this.skillsService.update(
       id,
       updateSkillDto,
       organizationId,
@@ -114,12 +118,12 @@ export class SkillsController {
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiResponse({ status: 200, description: 'Compétence supprimée avec succès' })
-  remove(
+  async remove(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.remove(id, organizationId, req.user.id);
+    return await this.skillsService.remove(id, organizationId, req.user.id);
   }
 
   @Get('candidates/:candidateId')
@@ -130,12 +134,12 @@ export class SkillsController {
     status: 200,
     description: 'Liste des compétences du candidat',
   })
-  getCandidateSkills(
+  async getCandidateSkills(
     @Param('candidateId', ParseIntPipe) candidateId: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.getCandidateSkills(
+    return await this.skillsService.getCandidateSkills(
       candidateId,
       organizationId,
       req.user.id,
@@ -163,12 +167,12 @@ export class SkillsController {
     status: 200,
     description: 'Liste des candidats correspondants',
   })
-  findCandidatesBySkills(
+  async findCandidatesBySkills(
     @Body() body: { skillIds: number[] },
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.findCandidatesBySkills(
+    return await this.skillsService.findCandidatesBySkills(
       body.skillIds,
       organizationId,
       req.user.id,
@@ -183,13 +187,13 @@ export class SkillsController {
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: AssociateSkillDto })
   @ApiResponse({ status: 201, description: 'Compétence associée avec succès' })
-  associateSkillToCandidate(
+  async associateSkillToCandidate(
     @Param('candidateId', ParseIntPipe) candidateId: number,
     @Body() associateSkillDto: AssociateSkillDto,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.associateSkillToCandidate(
+    return await this.skillsService.associateSkillToCandidate(
       candidateId,
       associateSkillDto.skillId,
       organizationId,
@@ -206,15 +210,35 @@ export class SkillsController {
   @ApiParam({ name: 'skillId', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiResponse({ status: 200, description: 'Compétence retirée avec succès' })
-  removeCandidateSkill(
+  async removeCandidateSkill(
     @Param('candidateId', ParseIntPipe) candidateId: number,
     @Param('skillId', ParseIntPipe) skillId: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.skillsService.removeCandidateSkill(
+    return await this.skillsService.removeCandidateSkill(
       candidateId,
       skillId,
+      organizationId,
+      req.user.id,
+    );
+  }
+
+  @Get('documents/:documentId')
+  @ApiOperation({ summary: "Récupérer toutes les compétences d'un document" })
+  @ApiParam({ name: 'documentId', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des compétences du document',
+  })
+  async getDocumentSkills(
+    @Param('documentId', ParseIntPipe) documentId: number,
+    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    return await this.skillsService.getDocumentSkills(
+      documentId,
       organizationId,
       req.user.id,
     );
