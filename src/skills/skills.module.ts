@@ -7,6 +7,7 @@ import { CandidateSkill } from './entities/candidate-skill.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Candidate } from '../candidates/entities/candidate.entity';
+import { Document } from '../documents/entities/document.entity';
 import { OcrService } from './services/ocr.service';
 import { SkillsExtractionService } from './services/skills-extraction.service';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       Organization,
       UserOrganization,
       Candidate,
+      Document,
     ]),
     NotificationsModule,
   ],
