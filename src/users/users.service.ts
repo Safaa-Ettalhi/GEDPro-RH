@@ -3,35 +3,120 @@ import {
   NotFoundException,
   BadRequestException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../auth/entities/user.entity';
+import { CreateUserDto } from '../auth/dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { Role } from '../common/enums/role.enum';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { Organization } from '../organizations/entities/organization.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) { }
+    @InjectRepository(UserOrganization)
+    private userOrganizationRepository: Repository<UserOrganization>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
+  ) {}
 
-  async findAll(): Promise<Omit<User, 'password'>[]> {
+  async findAll(currentUserId: number): Promise<Omit<User, 'password'>[]> {
+    // Récupérer l'organisation de l'utilisateur actuel
+    const currentUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: currentUserId },
+      relations: ['organization'],
+    });
+
+    if (!currentUserOrg) {
+      return [];
+    }
+
+    // Récupérer tous les utilisateurs de cette organisation
+    const userOrgs = await this.userOrganizationRepository.find({
+      where: { organizationId: currentUserOrg.organizationId },
+      relations: ['user', 'organization'],
+    });
+
+    const userIds = userOrgs
+      .map((uo) => uo.userId)
+      .filter((id): id is number => id !== undefined);
+
+    if (userIds.length === 0) {
+      return [];
+    }
+
     const users = await this.userRepository.find({
+      where: { id: In(userIds) },
+      relations: ['userOrganizations', 'userOrganizations.organization'],
       order: { createdAt: 'DESC' },
     });
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return users.map(({ password, ...user }) => user);
+  }
+
+  async create(
+    createUserDto: CreateUserDto,
+    adminUserId: number,
+  ): Promise<Omit<User, 'password'>> {
+    const existingUser = await this.userRepository.findOne({
+      where: { email: createUserDto.email },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Cet email existe déjà');
+    }
+
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+    const user = this.userRepository.create({
+      name: createUserDto.name,
+      email: createUserDto.email,
+      role: createUserDto.role || Role.CANDIDATE,
+      password: hashedPassword,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+    const adminUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: adminUserId },
+      relations: ['organization'],
+    });
+
+    if (adminUserOrg && adminUserOrg.organization) {
+      const existingUserOrg = await this.userOrganizationRepository.findOne({
+        where: {
+          userId: savedUser.id,
+          organizationId: adminUserOrg.organizationId,
+        },
+      });
+
+      if (!existingUserOrg) {
+        const userOrganization = this.userOrganizationRepository.create({
+          userId: savedUser.id,
+          organizationId: adminUserOrg.organizationId,
+          role: createUserDto.role || Role.CANDIDATE,
+        });
+        await this.userOrganizationRepository.save(userOrganization);
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = savedUser;
+    return userWithoutPassword;
   }
 
   async findOne(id: number): Promise<Omit<User, 'password'>> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['userOrganizations', 'userOrganizations.organization']
+      relations: ['userOrganizations', 'userOrganizations.organization'],
     });
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
@@ -97,7 +182,29 @@ export class UsersService {
   async changeRole(
     id: number,
     changeRoleDto: ChangeRoleDto,
+    adminUserId: number,
   ): Promise<Omit<User, 'password'>> {
+    const adminUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: adminUserId },
+    });
+
+    if (!adminUserOrg) {
+      throw new ForbiddenException("Vous n'appartenez à aucune organisation");
+    }
+
+    const targetUserOrg = await this.userOrganizationRepository.findOne({
+      where: {
+        userId: id,
+        organizationId: adminUserOrg.organizationId,
+      },
+    });
+
+    if (!targetUserOrg) {
+      throw new ForbiddenException(
+        "Cet utilisateur n'appartient pas à votre organisation",
+      );
+    }
+
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
@@ -105,6 +212,10 @@ export class UsersService {
 
     user.role = changeRoleDto.role;
     const updatedUser = await this.userRepository.save(user);
+
+    targetUserOrg.role = changeRoleDto.role;
+    await this.userOrganizationRepository.save(targetUserOrg);
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
@@ -117,6 +228,27 @@ export class UsersService {
     if (id === currentUserId) {
       throw new BadRequestException(
         'Vous ne pouvez pas supprimer votre propre compte',
+      );
+    }
+
+    const adminUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: currentUserId },
+    });
+
+    if (!adminUserOrg) {
+      throw new ForbiddenException("Vous n'appartenez à aucune organisation");
+    }
+
+    const targetUserOrg = await this.userOrganizationRepository.findOne({
+      where: {
+        userId: id,
+        organizationId: adminUserOrg.organizationId,
+      },
+    });
+
+    if (!targetUserOrg) {
+      throw new ForbiddenException(
+        "Cet utilisateur n'appartient pas à votre organisation",
       );
     }
 
