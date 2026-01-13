@@ -11,6 +11,7 @@ import { CandidateSkill } from './entities/candidate-skill.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Candidate } from '../candidates/entities/candidate.entity';
+import { Document } from '../documents/entities/document.entity';
 import { CreateSkillDto } from './dto/create-skill.dto';
 import { UpdateSkillDto } from './dto/update-skill.dto';
 import { Role } from '../common/enums/role.enum';
@@ -33,6 +34,8 @@ export class SkillsService {
     private userOrganizationRepository: Repository<UserOrganization>,
     @InjectRepository(Candidate)
     private candidateRepository: Repository<Candidate>,
+    @InjectRepository(Document)
+    private documentRepository: Repository<Document>,
     private skillsExtractionService: SkillsExtractionService,
     private readonly notificationsService: NotificationsService,
   ) {}
@@ -454,7 +457,6 @@ export class SkillsService {
     skill.usageCount += 1;
     await this.skillRepository.save(skill);
 
-    // Notifier les ADMIN et MANAGER de l'association manuelle
     try {
       const rhUsers = await this.userOrganizationRepository.find({
         where: {
@@ -493,5 +495,81 @@ export class SkillsService {
     }
 
     return saved;
+  }
+
+  async getDocumentSkills(
+    documentId: number,
+    organizationId: number,
+    userId: number,
+  ): Promise<
+    Array<{
+      skill: Skill;
+      confidence: number;
+      candidateId?: number;
+      candidate?: { id: number; firstName: string; lastName: string };
+    }>
+  > {
+    await this.checkOrganizationAccess(organizationId, userId);
+
+    // Récupérer les compétences associées via CandidateSkill
+    const candidateSkills = await this.candidateSkillRepository.find({
+      where: { documentId },
+      relations: ['skill', 'candidate'],
+      order: { confidence: 'DESC' },
+    });
+
+    if (candidateSkills.length > 0) {
+      return candidateSkills.map((cs) => ({
+        skill: cs.skill,
+        confidence: Number(cs.confidence),
+        candidateId: cs.candidateId,
+        candidate: cs.candidate
+          ? {
+              id: cs.candidate.id,
+              firstName: cs.candidate.firstName,
+              lastName: cs.candidate.lastName,
+            }
+          : undefined,
+      }));
+    }
+
+    try {
+      const document = await this.documentRepository.findOne({
+        where: { id: documentId, organizationId },
+      });
+
+      if (
+        document &&
+        document.extractedText &&
+        document.extractedText.trim().length > 0
+      ) {
+        const extractedSkills = this.skillsExtractionService.extractSkills(
+          document.extractedText,
+        );
+        const skills: Array<{ skill: Skill; confidence: number }> = [];
+
+        for (const extracted of extractedSkills) {
+          const skill = await this.findOrCreateSkill(
+            extracted.name,
+            extracted.category,
+            organizationId,
+          );
+          skills.push({
+            skill,
+            confidence: extracted.confidence,
+          });
+        }
+
+        return skills;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'extraction des compétences depuis le document ${documentId}: ${errorMessage}`,
+      );
+    }
+
+    return [];
   }
 }
