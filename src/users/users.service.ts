@@ -269,4 +269,86 @@ export class UsersService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return users.map(({ password, ...user }) => user);
   }
+
+  async activateUser(
+    id: number,
+    adminUserId: number,
+  ): Promise<Omit<User, 'password'>> {
+    const adminUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: adminUserId },
+    });
+
+    if (!adminUserOrg) {
+      throw new ForbiddenException("Vous n'appartenez à aucune organisation");
+    }
+
+    const targetUserOrg = await this.userOrganizationRepository.findOne({
+      where: {
+        userId: id,
+        organizationId: adminUserOrg.organizationId,
+      },
+    });
+
+    if (!targetUserOrg) {
+      throw new ForbiddenException(
+        "Cet utilisateur n'appartient pas à votre organisation",
+      );
+    }
+
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    user.isActive = true;
+    const updatedUser = await this.userRepository.save(user);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
+  }
+
+  async deactivateUser(
+    id: number,
+    adminUserId: number,
+  ): Promise<Omit<User, 'password'>> {
+    if (id === adminUserId) {
+      throw new BadRequestException(
+        'Vous ne pouvez pas désactiver votre propre compte',
+      );
+    }
+
+    const adminUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: adminUserId },
+    });
+
+    if (!adminUserOrg) {
+      throw new ForbiddenException("Vous n'appartenez à aucune organisation");
+    }
+
+    const targetUserOrg = await this.userOrganizationRepository.findOne({
+      where: {
+        userId: id,
+        organizationId: adminUserOrg.organizationId,
+      },
+    });
+
+    if (!targetUserOrg) {
+      throw new ForbiddenException(
+        "Cet utilisateur n'appartient pas à votre organisation",
+      );
+    }
+
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    user.isActive = false;
+    const updatedUser = await this.userRepository.save(user);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = updatedUser;
+    return userWithoutPassword;
+  }
 }
