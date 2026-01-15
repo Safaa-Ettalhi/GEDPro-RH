@@ -115,7 +115,11 @@ export class NotificationsController {
     @Request() req: RequestWithUser,
     @Query('organizationId', ParseIntPipe) organizationId: number,
   ) {
-    await this.notificationsService.markAllAsRead(req.user.id, organizationId);
+    await this.notificationsService.markAllAsRead(
+      req.user.id,
+      req.user.role,
+      organizationId,
+    );
     return { success: true };
   }
 }
