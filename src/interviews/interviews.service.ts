@@ -399,6 +399,23 @@ export class InterviewsService {
       }
     }
 
+    if (
+      updateInterviewDto.status &&
+      !updateInterviewDto.date &&
+      !updateInterviewDto.startTime
+    ) {
+      const interviewDate =
+        interview.date instanceof Date
+          ? interview.date
+          : new Date(interview.date);
+      const dateStr = interviewDate.toISOString().split('T')[0];
+      const interviewDateTime = new Date(`${dateStr}T${interview.startTime}`);
+
+      if (interviewDateTime < new Date()) {
+        updateInterviewDto.status = InterviewStatus.COMPLETED;
+      }
+    }
+
     Object.assign(interview, {
       ...updateInterviewDto,
       date: updateInterviewDto.date
