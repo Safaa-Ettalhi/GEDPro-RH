@@ -29,7 +29,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: '*', 
+    origin: '*',
     credentials: true,
   },
   namespace: '/notifications',
@@ -184,6 +184,7 @@ export class NotificationsGateway
       try {
         client.disconnect();
       } catch {
+        //
       }
     }
   }
@@ -270,13 +271,11 @@ export class NotificationsGateway
     }
   }
 
-
   sendToOrganization(organizationId: number, notification: NotificationDto) {
     this.server
       .to(`org:${organizationId}`)
       .emit('notification:new', notification);
   }
-
 
   sendToUsers(
     userIds: number[],
