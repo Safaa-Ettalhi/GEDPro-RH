@@ -110,7 +110,6 @@ export class NotificationsService {
     const query: Record<string, any> = { organizationId, read: false };
 
     if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
-      // Les autres utilisateurs voient uniquement leurs notifications
       query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
     }
 
@@ -174,15 +173,17 @@ export class NotificationsService {
     );
   }
 
-  async markAllAsRead(userId: number, organizationId: number): Promise<void> {
-    await this.notificationModel.updateMany(
-      {
-        $or: [{ userId }, { userId: { $exists: false }, organizationId }],
-        organizationId,
-        read: false,
-      },
-      { read: true },
-    );
+  async markAllAsRead(
+    userId: number,
+    userRole: Role,
+    organizationId: number,
+  ): Promise<void> {
+    const query: Record<string, any> = { organizationId, read: false };
+    if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
+      query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
+    }
+
+    await this.notificationModel.updateMany(query, { read: true });
   }
 
   async getUnreadCount(
