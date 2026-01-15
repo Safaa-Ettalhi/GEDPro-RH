@@ -39,7 +39,7 @@ export class InterviewsController {
   constructor(
     private readonly interviewsService: InterviewsService,
     private readonly googleCalendarService: GoogleCalendarService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -188,25 +188,7 @@ export class InterviewsController {
     return this.interviewsService.remove(id, organizationId, req.user.id);
   }
 
-  @Get('calendar/auth-url')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
-  @ApiOperation({ summary: "Obtenir l'URL d'authentification Google Calendar" })
-  @ApiResponse({ status: 200, description: "URL d'authentification" })
-  @ApiResponse({ status: 400, description: 'Google Calendar non configuré' })
-  getCalendarAuthUrl() {
-    try {
-      const authUrl = this.googleCalendarService.getAuthUrl();
-      return { authUrl };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
-      return {
-        error: 'Google Calendar non configuré',
-        message: errorMessage,
-      };
-    }
-  }
+
 
   @Get('calendar/info')
   @UseGuards(RolesGuard)
