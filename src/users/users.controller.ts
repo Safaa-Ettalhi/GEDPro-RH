@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Controller,
   Get,
@@ -171,5 +172,38 @@ export class UsersController {
     @Request() req: RequestWithUser,
   ) {
     return await this.usersService.remove(id, req.user.id);
+  }
+
+  @Put(':id/activate')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Activer un compte utilisateur' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Utilisateur activé avec succès' })
+  @ApiResponse({ status: 403, description: 'Accès refusé - Admin requis' })
+  async activate(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: RequestWithUser,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.usersService.activateUser(id, req.user.id);
+  }
+
+  @Put(':id/deactivate')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Désactiver un compte utilisateur' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Utilisateur désactivé avec succès',
+  })
+  @ApiResponse({ status: 403, description: 'Accès refusé - Admin requis' })
+  async deactivate(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: RequestWithUser,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    return await this.usersService.deactivateUser(id, req.user.id);
   }
 }
