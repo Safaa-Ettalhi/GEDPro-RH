@@ -42,6 +42,12 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Google Service Account keys (NEVER commit these files - they contain private keys!)
+gedrhpro-*.json
+google-service-account*.json
+*-service-account*.json
+*service-account*.json
+
 # temp directory
 .temp
 .tmp
