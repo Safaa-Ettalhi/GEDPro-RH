@@ -88,6 +88,12 @@ export class AuthService {
         throw new UnauthorizedException('Email ou mot de passe incorrect!');
       }
 
+      if (!user.isActive) {
+        throw new UnauthorizedException(
+          'Votre compte a été désactivé. Contactez votre administrateur.',
+        );
+      }
+
       const payload: JwtPayload = {
         sub: user.id,
         email: user.email,
