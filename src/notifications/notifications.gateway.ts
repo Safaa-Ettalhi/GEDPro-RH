@@ -24,11 +24,12 @@ import { Role } from '../common/enums/role.enum';
 interface AuthenticatedSocket extends Socket {
   userId?: number;
   organizationId?: number;
+  userRole?: Role;
 }
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // En production, spécifiez les origines autorisées
+    origin: '*', 
     credentials: true,
   },
   namespace: '/notifications',
@@ -40,7 +41,7 @@ export class NotificationsGateway
   server: Server;
 
   private readonly logger = new Logger(NotificationsGateway.name);
-  private readonly connectedUsers = new Map<number, Set<string>>(); // userId -> Set<socketId>
+  private readonly connectedUsers = new Map<number, Set<string>>();
 
   afterInit(server: Server) {
     this.logger.log(
@@ -70,7 +71,6 @@ export class NotificationsGateway
     );
 
     try {
-      // Authentifier le client via le token JWT
       const token = this.extractTokenFromSocket(client);
       this.logger.log(
         `Token extrait pour le client ${client.id}: ${token ? 'Oui (longueur: ' + token.length + ')' : 'Non'}`,
@@ -90,6 +90,7 @@ export class NotificationsGateway
         this.logger.log(
           `Token JWT vérifié pour le client ${client.id}, userId: ${payload.sub}`,
         );
+        client.userRole = payload.role as Role;
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : 'Erreur inconnue';
@@ -183,7 +184,6 @@ export class NotificationsGateway
       try {
         client.disconnect();
       } catch {
-        // Ignorer les erreurs de déconnexion
       }
     }
   }
@@ -233,13 +233,14 @@ export class NotificationsGateway
   @SubscribeMessage('notifications:mark-all-read')
   @UseGuards(JwtAuthGuard)
   async handleMarkAllAsRead(@ConnectedSocket() client: AuthenticatedSocket) {
-    if (!client.userId || !client.organizationId) {
+    if (!client.userId || !client.organizationId || !client.userRole) {
       return { success: false, error: 'Non authentifié' };
     }
 
     try {
       await this.notificationsService.markAllAsRead(
         client.userId,
+        client.userRole,
         client.organizationId,
       );
       return { success: true };
@@ -253,9 +254,6 @@ export class NotificationsGateway
     }
   }
 
-  /**
-   * Envoie une notification à un utilisateur spécifique
-   */
   sendToUser(userId: number, notification: NotificationDto) {
     const userSockets = this.connectedUsers.get(userId);
     if (userSockets && userSockets.size > 0) {
@@ -272,18 +270,14 @@ export class NotificationsGateway
     }
   }
 
-  /**
-   * Envoie une notification à tous les utilisateurs d'une organisation
-   */
+
   sendToOrganization(organizationId: number, notification: NotificationDto) {
     this.server
       .to(`org:${organizationId}`)
       .emit('notification:new', notification);
   }
 
-  /**
-   * Envoie une notification à des utilisateurs spécifiques d'une organisation
-   */
+
   sendToUsers(
     userIds: number[],
     organizationId: number,
@@ -292,7 +286,6 @@ export class NotificationsGateway
     userIds.forEach((userId) => {
       this.sendToUser(userId, notification);
     });
-    // Également envoyer à la room de l'organisation pour les autres utilisateurs autorisés
     this.server
       .to(`org:${organizationId}`)
       .emit('notification:new', notification);
@@ -300,7 +293,6 @@ export class NotificationsGateway
 
   private extractTokenFromSocket(client: Socket): string | null {
     try {
-      // Essayer d'abord dans les query params
       const token = client.handshake.query.token as string;
       if (token && typeof token === 'string' && token.length > 0) {
         this.logger.log(
@@ -309,7 +301,6 @@ export class NotificationsGateway
         return token;
       }
 
-      // Essayer dans les headers (avec ou sans "Bearer ")
       const authHeader = client.handshake.headers.authorization;
       if (authHeader && typeof authHeader === 'string') {
         if (authHeader.startsWith('Bearer ')) {
@@ -318,7 +309,6 @@ export class NotificationsGateway
           );
           return authHeader.substring(7);
         } else {
-          // Postman envoie parfois le token directement sans "Bearer "
           this.logger.log(
             `Token trouvé dans headers (direct) pour le client ${client.id}`,
           );
@@ -326,7 +316,6 @@ export class NotificationsGateway
         }
       }
 
-      // Essayer dans auth (pour certains clients WebSocket)
       const authToken = (client.handshake.auth as { token?: string })?.token;
       if (authToken && typeof authToken === 'string' && authToken.length > 0) {
         this.logger.log(`Token trouvé dans auth pour le client ${client.id}`);
