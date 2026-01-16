@@ -28,6 +28,10 @@ export class CreateFormDto {
   isActive?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateFormFieldDto)
