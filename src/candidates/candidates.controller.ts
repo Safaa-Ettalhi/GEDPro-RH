@@ -24,6 +24,7 @@ import { CandidatesService } from './candidates.service';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import { UpdateCandidateDto } from './dto/update-candidate.dto';
 import { ChangeStateDto } from './dto/change-state.dto';
+import { CreateEvaluationDto } from './dto/create-evaluation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -40,7 +41,7 @@ export class CandidatesController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
+  @Roles(Role.ADMIN, Role.RH, Role.CANDIDATE)
   @ApiOperation({ summary: 'Créer un nouveau candidat' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiResponse({ status: 201, description: 'Candidat créé avec succès' })
@@ -55,6 +56,7 @@ export class CandidatesController {
       createCandidateDto,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
@@ -102,6 +104,34 @@ export class CandidatesController {
     );
   }
 
+  @Get('me/applications')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CANDIDATE)
+  @ApiOperation({ summary: 'Récupérer les candidatures du candidat connecté' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: false })
+  @ApiResponse({ status: 200, description: 'Liste des candidatures' })
+  getMyApplications(
+    @Query('organizationId') organizationId: string | undefined,
+    @Request() req: RequestWithUser,
+  ) {
+    const orgId = organizationId ? parseInt(organizationId, 10) : undefined;
+    return this.candidatesService.findMyApplications(orgId, req.user.id);
+  }
+
+  @Get('me/documents')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CANDIDATE)
+  @ApiOperation({ summary: 'Récupérer les documents du candidat connecté' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: false })
+  @ApiResponse({ status: 200, description: 'Liste des documents' })
+  getMyDocuments(
+    @Query('organizationId') organizationId: string | undefined,
+    @Request() req: RequestWithUser,
+  ) {
+    const orgId = organizationId ? parseInt(organizationId, 10) : undefined;
+    return this.candidatesService.getMyDocuments(orgId, req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un candidat par son ID' })
   @ApiParam({ name: 'id', type: Number })
@@ -113,12 +143,17 @@ export class CandidatesController {
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.candidatesService.findOne(id, organizationId, req.user.id);
+    return this.candidatesService.findOne(
+      id,
+      organizationId,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCandidateDto: UpdateCandidateDto,
@@ -130,17 +165,22 @@ export class CandidatesController {
       updateCandidateDto,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
   @Patch(':id/state')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
-  @ApiOperation({ summary: "Changer l'état d'un candidat" })
+  @Roles(Role.ADMIN, Role.RH, Role.CANDIDATE)
+  @ApiOperation({
+    summary:
+      "Changer l'état d'un candidat (Admin/RH) ou annuler une candidature (Candidat)",
+  })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiResponse({ status: 200, description: 'État modifié avec succès' })
   @ApiResponse({ status: 400, description: 'État invalide' })
+  @ApiResponse({ status: 403, description: 'Accès refusé' })
   @ApiBody({ type: ChangeStateDto })
   changeState(
     @Param('id', ParseIntPipe) id: number,
@@ -153,6 +193,7 @@ export class CandidatesController {
       changeStateDto,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
@@ -166,6 +207,7 @@ export class CandidatesController {
       id,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
@@ -179,12 +221,13 @@ export class CandidatesController {
       id,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
   @Post(':id/documents/:documentId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER, Role.CANDIDATE)
+  @Roles(Role.ADMIN, Role.RH, Role.CANDIDATE)
   associateDocument(
     @Param('id', ParseIntPipe) candidateId: number,
     @Param('documentId', ParseIntPipe) documentId: number,
@@ -196,12 +239,13 @@ export class CandidatesController {
       documentId,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
   @Delete(':id/documents/:documentId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH)
   removeDocument(
     @Param('id', ParseIntPipe) candidateId: number,
     @Param('documentId', ParseIntPipe) documentId: number,
@@ -213,6 +257,7 @@ export class CandidatesController {
       documentId,
       organizationId,
       req.user.id,
+      req.user.role,
     );
   }
 
@@ -259,20 +304,78 @@ export class CandidatesController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.CANDIDATE)
   @ApiOperation({
-    summary: 'Supprimer un candidat (réservé à Admin RH et Manager)',
+    summary: 'Supprimer un candidat (Admin RH ou le candidat lui-même)',
   })
   @ApiResponse({ status: 200, description: 'Candidat supprimé avec succès' })
   @ApiResponse({
     status: 403,
-    description: 'Accès refusé - Admin RH ou Manager requis',
+    description: 'Accès refusé',
   })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,
     @Request() req: RequestWithUser,
   ) {
-    return this.candidatesService.remove(id, organizationId, req.user.id);
+    return this.candidatesService.remove(
+      id,
+      organizationId,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
+  @Post('evaluations')
+  @UseGuards(RolesGuard)
+  @Roles(Role.MANAGER)
+  @ApiOperation({ summary: "Créer une évaluation d'un candidat (Manager)" })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiBody({ type: CreateEvaluationDto })
+  @ApiResponse({ status: 201, description: 'Évaluation créée avec succès' })
+  @ApiResponse({ status: 403, description: 'Accès refusé' })
+  createEvaluation(
+    @Body() createEvaluationDto: CreateEvaluationDto,
+    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.candidatesService.createEvaluation(
+      createEvaluationDto,
+      organizationId,
+      req.user.id,
+    );
+  }
+
+  @Get('evaluations/me')
+  @UseGuards(RolesGuard)
+  @Roles(Role.MANAGER)
+  @ApiOperation({ summary: 'Récupérer les évaluations du Manager connecté' })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Liste des évaluations' })
+  getManagerEvaluations(
+    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.candidatesService.getManagerEvaluations(
+      organizationId,
+      req.user.id,
+    );
+  }
+
+  @Get(':id/evaluations')
+  @ApiOperation({ summary: "Récupérer les évaluations d'un candidat" })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Liste des évaluations' })
+  getCandidateEvaluations(
+    @Param('id', ParseIntPipe) candidateId: number,
+    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.candidatesService.getCandidateEvaluations(
+      candidateId,
+      organizationId,
+      req.user.id,
+    );
   }
 }
