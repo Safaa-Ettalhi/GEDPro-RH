@@ -248,6 +248,39 @@ export class DocumentsService {
     return { message: 'Document supprimé avec succès' };
   }
 
+  /**
+   * Permet à un candidat de supprimer son propre document
+   * Vérifie que le document appartient bien au candidat (uploadedBy === userId)
+   */
+  async removeMyDocument(
+    id: number,
+    userId: number,
+  ): Promise<{ message: string }> {
+    const document = await this.documentRepository.findOne({
+      where: { id },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document introuvable');
+    }
+
+    if (document.uploadedBy !== userId) {
+      throw new ForbiddenException(
+        "Vous n'êtes pas autorisé à supprimer ce document",
+      );
+    }
+
+    await this.candidateDocumentRepository.delete({
+      documentId: id,
+    });
+
+    await this.minioService.deleteFile(document.minioPath);
+
+    await this.documentRepository.remove(document);
+
+    return { message: 'Document supprimé avec succès' };
+  }
+
   private async processDocumentAsync(
     documentId: number,
     buffer: Buffer,
@@ -282,7 +315,6 @@ export class DocumentsService {
         `Texte extrait du document ${documentId} (${extractedText.length} caractères)`,
       );
 
-      // Extraire les compétences pour tous les candidats associés à ce document
       try {
         const candidateDocuments = await this.candidateDocumentRepository.find({
           where: { documentId },
@@ -319,7 +351,6 @@ export class DocumentsService {
         );
       }
 
-      // Notifier l'utilisateur qui a uploadé le document que le traitement est terminé
       try {
         if (document.uploadedBy && document.organizationId) {
           await this.notificationsService.createAndSend(
@@ -406,7 +437,6 @@ export class DocumentsService {
         `Texte extrait avec succès (${extractedText.length} caractères)`,
       );
 
-      // Extraire les compétences pour tous les candidats associés à ce document
       try {
         const candidateDocuments = await this.candidateDocumentRepository.find({
           where: { documentId: id },

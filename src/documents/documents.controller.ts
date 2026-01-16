@@ -237,4 +237,23 @@ export class DocumentsController {
   ) {
     return this.documentsService.remove(id, organizationId, req.user.id);
   }
+
+  @Delete('me/:id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CANDIDATE)
+  @ApiOperation({ summary: 'Supprimer mon propre document (candidat)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Document supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Document introuvable' })
+  @ApiResponse({
+    status: 403,
+    description: 'Non autorisé à supprimer ce document',
+  })
+  removeMyDocument(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: RequestWithUser,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return this.documentsService.removeMyDocument(id, req.user.id);
+  }
 }
