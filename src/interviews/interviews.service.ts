@@ -78,7 +78,7 @@ export class InterviewsService {
   ): Promise<Interview> {
     await this.checkOrganizationAccess(organizationId, userId, [
       Role.ADMIN,
-      Role.MANAGER,
+      Role.RH,
     ]);
 
     const organization = await this.organizationRepository.findOne({
@@ -227,11 +227,9 @@ export class InterviewsService {
         this.logger.error(
           `Erreur lors de la création de l'événement Google Calendar: ${errorMessage}`,
         );
-        // Ne pas bloquer la création de l'entretien si Google Calendar échoue
       }
     }
 
-    // Notifier les participants de l'entretien planifié
     try {
       const participants: User[] = [];
       if (
@@ -259,6 +257,32 @@ export class InterviewsService {
           `Entretien "${savedInterview.title}" avec ${candidate.firstName} ${candidate.lastName} le ${savedInterview.date.toLocaleDateString('fr-FR')} à ${savedInterview.startTime}`,
           organizationId,
           userIds,
+          {
+            candidateId: candidate.id,
+            interviewId: savedInterview.id,
+          },
+        );
+      }
+
+      const candidateUser = await this.userRepository.findOne({
+        where: { email: candidate.email },
+      });
+
+      if (candidateUser) {
+        const interviewDate = new Date(savedInterview.date);
+        const formattedDate = interviewDate.toLocaleDateString('fr-FR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+
+        await this.notificationsService.createAndSend(
+          NotificationType.INTERVIEW_PLANNED,
+          'Entretien planifié',
+          `Un entretien "${savedInterview.title}" a été planifié pour vous le ${formattedDate} à ${savedInterview.startTime}${savedInterview.location ? ` à ${savedInterview.location}` : ''}${savedInterview.meetingLink ? `. Lien de visioconférence : ${savedInterview.meetingLink}` : ''}`,
+          organizationId,
+          [candidateUser.id],
           {
             candidateId: candidate.id,
             interviewId: savedInterview.id,
@@ -482,7 +506,6 @@ export class InterviewsService {
       }
     }
 
-    // Notifier les participants de la modification de l'entretien
     try {
       const candidate = await this.candidateRepository.findOne({
         where: { id: interview.candidateId },
@@ -564,11 +587,9 @@ export class InterviewsService {
         this.logger.error(
           `Erreur lors de la suppression de l'événement Google Calendar: ${errorMessage}`,
         );
-        // Ne pas bloquer la suppression de l'entretien si Google Calendar échoue
       }
     }
 
-    // Notifier les participants de l'annulation de l'entretien
     try {
       const candidate = interview.candidate;
       if (candidate) {
@@ -637,6 +658,77 @@ export class InterviewsService {
     });
   }
 
+  async getMyInterviews(
+    organizationId: number | undefined,
+    userId: number,
+  ): Promise<Interview[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    if (organizationId) {
+      const candidates = await this.candidateRepository.find({
+        where: {
+          organizationId,
+          email: user.email,
+        },
+        select: ['id'],
+      });
+
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      const candidateIds = candidates.map((c) => c.id);
+
+      const interviews = await this.interviewRepository
+        .createQueryBuilder('interview')
+        .leftJoinAndSelect('interview.candidate', 'candidate')
+        .leftJoinAndSelect('interview.organization', 'organization')
+        .where('interview.organizationId = :organizationId', {
+          organizationId,
+        })
+        .andWhere('interview.candidateId IN (:...candidateIds)', {
+          candidateIds,
+        })
+        .orderBy('interview.date', 'ASC')
+        .addOrderBy('interview.startTime', 'ASC')
+        .getMany();
+
+      return interviews;
+    } else {
+      const candidates = await this.candidateRepository.find({
+        where: {
+          email: user.email,
+        },
+        select: ['id', 'organizationId'],
+      });
+
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      const candidateIds = candidates.map((c) => c.id);
+
+      const interviews = await this.interviewRepository
+        .createQueryBuilder('interview')
+        .leftJoinAndSelect('interview.candidate', 'candidate')
+        .leftJoinAndSelect('interview.organization', 'organization')
+        .where('interview.candidateId IN (:...candidateIds)', {
+          candidateIds,
+        })
+        .orderBy('interview.date', 'ASC')
+        .addOrderBy('interview.startTime', 'ASC')
+        .getMany();
+
+      return interviews;
+    }
+  }
+
   async syncWithCalendar(
     id: number,
     organizationId: number,
@@ -684,7 +776,6 @@ export class InterviewsService {
 
     try {
       if (interview.calendarEventId) {
-        // Mettre à jour l'événement existant
         await this.googleCalendarService.updateEvent(
           interview.calendarEventId,
           interview,

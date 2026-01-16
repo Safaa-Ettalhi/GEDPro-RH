@@ -43,7 +43,7 @@ export class InterviewsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH)
   @ApiOperation({ summary: 'Créer un nouvel entretien' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateInterviewDto })
@@ -219,5 +219,19 @@ export class InterviewsController {
       organizationId,
       req.user.id,
     );
+  }
+
+  @Get('me/interviews')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CANDIDATE)
+  @ApiOperation({ summary: "Récupérer tous les entretiens du candidat connecté" })
+  @ApiQuery({ name: 'organizationId', type: Number, required: false })
+  @ApiResponse({ status: 200, description: 'Liste des entretiens' })
+  getMyInterviews(
+    @Query('organizationId') organizationId: string | undefined,
+    @Request() req: RequestWithUser,
+  ) {
+    const orgId = organizationId ? parseInt(organizationId, 10) : undefined;
+    return this.interviewsService.getMyInterviews(orgId, req.user.id);
   }
 }
