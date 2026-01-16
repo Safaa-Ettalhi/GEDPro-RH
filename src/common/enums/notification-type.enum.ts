@@ -15,4 +15,5 @@ export enum NotificationType {
   JOB_OFFER_UPDATED = 'job_offer_updated',
   USER_ADDED_TO_ORGANIZATION = 'user_added_to_organization',
   USER_ROLE_CHANGED = 'user_role_changed',
+  CANDIDATE_ASSIGNED = 'candidate_assigned',
 }
