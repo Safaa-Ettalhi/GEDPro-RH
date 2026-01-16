@@ -32,4 +32,8 @@ export class UpdateCandidateDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsInt()
+  managerId?: number;
 }
