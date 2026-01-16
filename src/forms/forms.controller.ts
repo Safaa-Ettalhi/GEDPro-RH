@@ -15,7 +15,6 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiQuery,
   ApiParam,
   ApiBody,
@@ -33,14 +32,12 @@ import { Role } from '../common/enums/role.enum';
 import type { RequestWithUser } from '../common/interfaces/user-request.interface';
 
 @ApiTags('forms')
-@ApiBearerAuth('JWT-auth')
 @Controller('forms')
-@UseGuards(JwtAuthGuard)
 export class FormsController {
   constructor(private readonly formsService: FormsService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Créer un nouveau formulaire' })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -54,7 +51,20 @@ export class FormsController {
     return this.formsService.create(createFormDto, organizationId, req.user.id);
   }
 
+  @Get('job-offers/public')
+  @ApiOperation({
+    summary: "Récupérer toutes les offres d'emploi actives (public)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Liste des offres d'emploi actives",
+  })
+  findPublicJobOffers() {
+    return this.formsService.findPublicJobOffers();
+  }
+
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Récupérer tous les formulaires d'une organisation",
   })
@@ -68,6 +78,7 @@ export class FormsController {
   }
 
   @Get('job-offers')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Récupérer toutes les offres d'emploi d'une organisation",
   })
@@ -81,6 +92,7 @@ export class FormsController {
   }
 
   @Get('job-offers/:id')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Récupérer une offre d'emploi par son ID" })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -95,6 +107,7 @@ export class FormsController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Récupérer un formulaire par son ID' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -109,7 +122,7 @@ export class FormsController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Modifier un formulaire' })
   @ApiParam({ name: 'id', type: Number })
@@ -146,7 +159,7 @@ export class FormsController {
   }
 
   @Post(':id/fields')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Ajouter un champ à un formulaire' })
   @ApiParam({ name: 'id', type: Number })
@@ -168,7 +181,7 @@ export class FormsController {
   }
 
   @Patch(':id/fields/:fieldId')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: "Modifier un champ d'un formulaire" })
   @ApiParam({ name: 'id', type: Number })
@@ -215,8 +228,8 @@ export class FormsController {
   }
 
   @Post('job-offers')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.RH)
   @ApiOperation({ summary: "Créer une nouvelle offre d'emploi" })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
   @ApiBody({ type: CreateJobOfferDto })
@@ -235,7 +248,7 @@ export class FormsController {
 
   @Patch('job-offers/:id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH)
   @ApiOperation({ summary: "Modifier une offre d'emploi" })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })
@@ -259,8 +272,8 @@ export class FormsController {
   }
 
   @Delete('job-offers/:id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.RH)
   @ApiOperation({ summary: "Supprimer une offre d'emploi" })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'organizationId', type: Number, required: true })

@@ -310,6 +310,14 @@ export class FormsService {
     return this.jobOfferRepository.save(jobOffer);
   }
 
+  async findPublicJobOffers(): Promise<JobOffer[]> {
+    return this.jobOfferRepository.find({
+      where: { isActive: true },
+      relations: ['form', 'form.fields', 'organization'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findAllJobOffers(
     organizationId: number,
     userId: number,
