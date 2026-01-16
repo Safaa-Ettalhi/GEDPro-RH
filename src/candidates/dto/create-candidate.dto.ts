@@ -33,4 +33,8 @@ export class CreateCandidateDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsInt()
+  managerId?: number;
 }
