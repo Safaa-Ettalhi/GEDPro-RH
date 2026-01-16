@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { Form } from './form.entity';
+import { ContractType } from '../../common/enums/contract-type.enum';
 
 @Entity('job_offers')
 export class JobOffer {
@@ -20,6 +21,19 @@ export class JobOffer {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({ nullable: true })
+  location: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  salary: number;
+
+  @Column({
+    type: 'enum',
+    enum: ContractType,
+    nullable: true,
+  })
+  contractType: ContractType;
 
   @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organization_id' })

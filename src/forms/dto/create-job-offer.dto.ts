@@ -3,8 +3,11 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
+  IsNumber,
+  IsEnum,
   MinLength,
 } from 'class-validator';
+import { ContractType } from '../../common/enums/contract-type.enum';
 
 export class CreateJobOfferDto {
   @IsString()
@@ -14,6 +17,18 @@ export class CreateJobOfferDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @IsOptional()
+  @IsNumber()
+  salary?: number;
+
+  @IsOptional()
+  @IsEnum(ContractType)
+  contractType?: ContractType;
 
   @IsOptional()
   @IsInt()
