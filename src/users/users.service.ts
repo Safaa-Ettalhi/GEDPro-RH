@@ -65,7 +65,8 @@ export class UsersService {
 
   async create(
     createUserDto: CreateUserDto,
-    adminUserId: number,
+    creatorUserId: number,
+    creatorRole?: Role,
   ): Promise<Omit<User, 'password'>> {
     const existingUser = await this.userRepository.findOne({
       where: { email: createUserDto.email },
@@ -73,6 +74,18 @@ export class UsersService {
 
     if (existingUser) {
       throw new BadRequestException('Cet email existe déjà');
+    }
+
+    if (creatorRole === Role.RH) {
+      if (
+        createUserDto.role === Role.ADMIN ||
+        createUserDto.role === Role.RH ||
+        createUserDto.role === Role.CANDIDATE
+      ) {
+        throw new ForbiddenException(
+          "Vous n'êtes pas autorisé à créer des administrateurs, des RH ou des candidats. Vous pouvez uniquement créer des managers.",
+        );
+      }
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -85,23 +98,23 @@ export class UsersService {
     });
 
     const savedUser = await this.userRepository.save(user);
-    const adminUserOrg = await this.userOrganizationRepository.findOne({
-      where: { userId: adminUserId },
+    const creatorUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId: creatorUserId },
       relations: ['organization'],
     });
 
-    if (adminUserOrg && adminUserOrg.organization) {
+    if (creatorUserOrg && creatorUserOrg.organization) {
       const existingUserOrg = await this.userOrganizationRepository.findOne({
         where: {
           userId: savedUser.id,
-          organizationId: adminUserOrg.organizationId,
+          organizationId: creatorUserOrg.organizationId,
         },
       });
 
       if (!existingUserOrg) {
         const userOrganization = this.userOrganizationRepository.create({
           userId: savedUser.id,
-          organizationId: adminUserOrg.organizationId,
+          organizationId: creatorUserOrg.organizationId,
           role: createUserDto.role || Role.CANDIDATE,
         });
         await this.userOrganizationRepository.save(userOrganization);
@@ -264,6 +277,7 @@ export class UsersService {
   async getUsersByRole(role: Role): Promise<Omit<User, 'password'>[]> {
     const users = await this.userRepository.find({
       where: { role },
+      relations: ['userOrganizations', 'userOrganizations.organization'],
       order: { createdAt: 'DESC' },
     });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

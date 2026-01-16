@@ -39,14 +39,14 @@ export class UsersController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({
-    summary: "Récupérer les utilisateurs de l'organisation de l'admin",
+    summary: "Récupérer les utilisateurs de l'organisation",
   })
   @ApiResponse({ status: 200, description: 'Liste des utilisateurs' })
   @ApiResponse({
     status: 403,
-    description: 'Accès refusé - Admin ou Manager requis',
+    description: 'Accès refusé - Admin, RH ou Manager requis',
   })
   async findAll(@Request() req: RequestWithUser) {
     return await this.usersService.findAll(req.user.id);
@@ -54,16 +54,25 @@ export class UsersController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: "Créer un nouvel utilisateur (réservé à l'admin)" })
+  @Roles(Role.ADMIN, Role.RH)
+  @ApiOperation({
+    summary: "Créer un nouvel utilisateur (réservé à l'admin et RH)",
+  })
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
-  @ApiResponse({ status: 403, description: 'Accès refusé - Admin requis' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès refusé - Admin ou RH requis',
+  })
   async create(
     @Body() createUserDto: CreateUserDto,
     @Request() req: RequestWithUser,
   ) {
-    return await this.usersService.create(createUserDto, req.user.id);
+    return await this.usersService.create(
+      createUserDto,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Get('me')
@@ -77,7 +86,7 @@ export class UsersController {
 
   @Get('role/:role')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
   @ApiOperation({ summary: 'Récupérer les utilisateurs par rôle' })
   @ApiParam({ name: 'role', enum: Role })
   @ApiResponse({
