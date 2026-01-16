@@ -40,6 +40,9 @@ export class Form {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ default: false })
+  isPublic: boolean;
+
   @OneToMany(() => FormField, (field) => field.form, { cascade: true })
   fields: FormField[];
 

@@ -81,6 +81,7 @@ export class FormsService {
       type: createFormDto.type,
       organizationId,
       isActive: createFormDto.isActive ?? true,
+      isPublic: createFormDto.isPublic ?? false,
     });
 
     if (createFormDto.fields && createFormDto.fields.length > 0) {
