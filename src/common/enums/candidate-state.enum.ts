@@ -5,4 +5,5 @@ export enum CandidateState {
   EN_ENTRETIEN = 'en_entretien',
   ACCEPTE = 'accepte',
   REFUSE = 'refuse',
+  ANNULE = 'annule',
 }
