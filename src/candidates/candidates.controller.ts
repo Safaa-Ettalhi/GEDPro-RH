@@ -216,9 +216,58 @@ export class CandidatesController {
     );
   }
 
+  @Patch(':id/manager')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.RH)
+  @ApiOperation({ summary: 'Associer ou dissocier un manager à un candidat' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: true })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        managerId: {
+          type: 'number',
+          nullable: true,
+          description: 'ID du manager à associer, ou null pour dissocier',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Manager associé/dissocié avec succès',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès refusé - Admin RH ou RH requis',
+  })
+  assignManager(
+    @Param('id', ParseIntPipe) candidateId: number,
+    @Body() body: { managerId: number | null },
+    @Query('organizationId', ParseIntPipe) organizationId: number,
+    @Request() req: RequestWithUser,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return this.candidatesService.assignManager(
+      candidateId,
+      body.managerId,
+      organizationId,
+      req.user.id,
+    );
+  }
+
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.RH, Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({
+    summary: 'Supprimer un candidat (réservé à Admin RH et Manager)',
+  })
+  @ApiResponse({ status: 200, description: 'Candidat supprimé avec succès' })
+  @ApiResponse({
+    status: 403,
+    description: 'Accès refusé - Admin RH ou Manager requis',
+  })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @Query('organizationId', ParseIntPipe) organizationId: number,

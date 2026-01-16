@@ -125,6 +125,23 @@ export class CandidatesService {
       }
     }
 
+    // Vérifier que le manager appartient à l'organisation si fourni
+    if (createCandidateDto.managerId) {
+      const managerOrg = await this.userOrganizationRepository.findOne({
+        where: {
+          userId: createCandidateDto.managerId,
+          organizationId,
+          role: Role.MANAGER,
+        },
+      });
+
+      if (!managerOrg) {
+        throw new NotFoundException(
+          "Manager introuvable ou n'appartient pas à cette organisation",
+        );
+      }
+    }
+
     const candidate = this.candidateRepository.create({
       ...createCandidateDto,
       organizationId,
@@ -223,6 +240,7 @@ export class CandidatesService {
       .createQueryBuilder('candidate')
       .leftJoinAndSelect('candidate.jobOffer', 'jobOffer')
       .leftJoinAndSelect('candidate.form', 'form')
+      .leftJoinAndSelect('candidate.manager', 'manager')
       .where('candidate.organizationId = :organizationId', {
         organizationId: finalOrganizationId,
       });
@@ -259,6 +277,7 @@ export class CandidatesService {
       .createQueryBuilder('candidate')
       .leftJoinAndSelect('candidate.jobOffer', 'jobOffer')
       .leftJoinAndSelect('candidate.form', 'form')
+      .leftJoinAndSelect('candidate.manager', 'manager')
       .where('candidate.id = :id', { id })
       .andWhere('candidate.organizationId = :organizationId', {
         organizationId,
@@ -300,7 +319,31 @@ export class CandidatesService {
       }
     }
 
-    Object.assign(candidate, updateCandidateDto);
+    if (updateCandidateDto.managerId !== undefined) {
+      if (updateCandidateDto.managerId === null) {
+        candidate.managerId = null;
+      } else {
+        const managerOrg = await this.userOrganizationRepository.findOne({
+          where: {
+            userId: updateCandidateDto.managerId,
+            organizationId,
+            role: Role.MANAGER,
+          },
+        });
+
+        if (!managerOrg) {
+          throw new NotFoundException(
+            "Manager introuvable ou n'appartient pas à cette organisation",
+          );
+        }
+        candidate.managerId = updateCandidateDto.managerId;
+      }
+    }
+
+    Object.assign(candidate, {
+      ...updateCandidateDto,
+      managerId: candidate.managerId,
+    });
     await this.candidateRepository.save(candidate);
 
     return this.findOne(id, organizationId, userId);
@@ -314,6 +357,7 @@ export class CandidatesService {
   ): Promise<Candidate> {
     await this.checkOrganizationAccess(organizationId, userId, [
       Role.ADMIN,
+      Role.RH,
       Role.MANAGER,
     ]);
 
@@ -617,5 +661,70 @@ export class CandidatesService {
     });
 
     await history.save();
+  }
+
+  async assignManager(
+    candidateId: number,
+    managerId: number | null,
+    organizationId: number,
+    userId: number,
+  ): Promise<Candidate> {
+    await this.checkOrganizationAccess(organizationId, userId, [
+      Role.ADMIN,
+      Role.RH,
+    ]);
+
+    const candidate = await this.candidateRepository.findOne({
+      where: { id: candidateId, organizationId },
+    });
+
+    if (!candidate) {
+      throw new NotFoundException('Candidat introuvable');
+    }
+
+    if (managerId === null) {
+      // Dissocier le manager
+      candidate.managerId = null;
+    } else {
+      // Vérifier que le manager appartient à l'organisation
+      const managerOrg = await this.userOrganizationRepository.findOne({
+        where: {
+          userId: managerId,
+          organizationId,
+          role: Role.MANAGER,
+        },
+      });
+
+      if (!managerOrg) {
+        throw new NotFoundException(
+          "Manager introuvable ou n'appartient pas à cette organisation",
+        );
+      }
+
+      candidate.managerId = managerId;
+    }
+
+    const updatedCandidate = await this.candidateRepository.save(candidate);
+
+    if (managerId) {
+      try {
+        await this.notificationsService.createAndSend(
+          NotificationType.CANDIDATE_ASSIGNED,
+          'Candidat assigné',
+          `Le candidat ${candidate.firstName} ${candidate.lastName} vous a été assigné`,
+          organizationId,
+          [managerId],
+          {
+            candidateId: candidate.id,
+          },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Erreur lors de l'envoi de la notification d'assignation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        );
+      }
+    }
+
+    return this.findOne(updatedCandidate.id, organizationId, userId);
   }
 }
