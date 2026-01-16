@@ -10,6 +10,7 @@ import {
 import { Organization } from '../../organizations/entities/organization.entity';
 import { JobOffer } from '../../forms/entities/job-offer.entity';
 import { Form } from '../../forms/entities/form.entity';
+import { User } from '../../auth/entities/user.entity';
 import { CandidateState } from '../../common/enums/candidate-state.enum';
 
 @Entity('candidates')
@@ -59,6 +60,13 @@ export class Candidate {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'manager_id' })
+  manager: User;
+
+  @Column({ name: 'manager_id', nullable: true })
+  managerId: number | null;
 
   @Column({ nullable: true })
   createdBy: number;
