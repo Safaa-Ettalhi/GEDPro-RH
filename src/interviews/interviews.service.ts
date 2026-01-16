@@ -123,13 +123,24 @@ export class InterviewsService {
         "La date de l'entretien ne peut pas être dans le passé",
       );
     }
+    const creatorUser = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+    const creatorUserOrg = await this.userOrganizationRepository.findOne({
+      where: { userId, organizationId },
+    });
+    const creatorRole = creatorUserOrg?.role || creatorUser?.role;
 
-    // Vérifier les participants
-    if (
-      createInterviewDto.participantIds &&
-      createInterviewDto.participantIds.length > 0
-    ) {
-      for (const participantId of createInterviewDto.participantIds) {
+    let participantIds = createInterviewDto.participantIds || [];
+
+    if (creatorRole === Role.RH || creatorRole === Role.ADMIN) {
+      if (!participantIds.includes(userId)) {
+        participantIds = [...participantIds, userId];
+      }
+    }
+
+    if (participantIds.length > 0) {
+      for (const participantId of participantIds) {
         const participant = await this.userRepository.findOne({
           where: { id: participantId },
         });
@@ -146,6 +157,7 @@ export class InterviewsService {
       candidateId: createInterviewDto.candidateId,
       organizationId,
       createdBy: userId,
+      participantIds: participantIds.length > 0 ? participantIds : undefined,
       date: new Date(createInterviewDto.date),
       status: InterviewStatus.PLANNED,
     });
