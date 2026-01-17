@@ -670,63 +670,164 @@ export class InterviewsService {
       throw new NotFoundException('Utilisateur introuvable');
     }
 
-    if (organizationId) {
-      const candidates = await this.candidateRepository.find({
-        where: {
-          organizationId,
-          email: user.email,
-        },
-        select: ['id'],
-      });
+    this.logger.log(
+      `[getMyInterviews] userId: ${userId}, email: ${user.email}, organizationId: ${organizationId || 'undefined'}`,
+    );
 
-      if (candidates.length === 0) {
-        return [];
-      }
+    const candidates = await this.candidateRepository.find({
+      where: {
+        email: user.email,
+      },
+      select: ['id', 'organizationId'],
+    });
 
-      const candidateIds = candidates.map((c) => c.id);
+    this.logger.log(
+      `[getMyInterviews] Found ${candidates.length} candidate(s) with email ${user.email}`,
+    );
 
-      const interviews = await this.interviewRepository
-        .createQueryBuilder('interview')
-        .leftJoinAndSelect('interview.candidate', 'candidate')
-        .leftJoinAndSelect('interview.organization', 'organization')
-        .where('interview.organizationId = :organizationId', {
-          organizationId,
-        })
-        .andWhere('interview.candidateId IN (:...candidateIds)', {
-          candidateIds,
-        })
-        .orderBy('interview.date', 'ASC')
-        .addOrderBy('interview.startTime', 'ASC')
-        .getMany();
-
-      return interviews;
-    } else {
-      const candidates = await this.candidateRepository.find({
-        where: {
-          email: user.email,
-        },
-        select: ['id', 'organizationId'],
-      });
-
-      if (candidates.length === 0) {
-        return [];
-      }
-
-      const candidateIds = candidates.map((c) => c.id);
-
-      const interviews = await this.interviewRepository
-        .createQueryBuilder('interview')
-        .leftJoinAndSelect('interview.candidate', 'candidate')
-        .leftJoinAndSelect('interview.organization', 'organization')
-        .where('interview.candidateId IN (:...candidateIds)', {
-          candidateIds,
-        })
-        .orderBy('interview.date', 'ASC')
-        .addOrderBy('interview.startTime', 'ASC')
-        .getMany();
-
-      return interviews;
+    if (candidates.length === 0) {
+      return [];
     }
+
+    const candidateIds = candidates.map((c) => c.id);
+
+    const queryBuilder = this.interviewRepository
+      .createQueryBuilder('interview')
+      .leftJoinAndSelect('interview.candidate', 'candidate')
+      .leftJoinAndSelect('interview.organization', 'organization')
+      .where('interview.candidateId IN (:...candidateIds)', {
+        candidateIds,
+      });
+
+    if (organizationId) {
+      queryBuilder.andWhere('interview.organizationId = :organizationId', {
+        organizationId,
+      });
+    }
+
+    const interviews = await queryBuilder
+      .orderBy('interview.date', 'ASC')
+      .addOrderBy('interview.startTime', 'ASC')
+      .getMany();
+
+    this.logger.log(
+      `[getMyInterviews] Found ${interviews.length} interview(s) for user ${userId}`,
+    );
+
+    return interviews;
+  }
+
+  async updateMyInterviewStatus(
+    id: number,
+    status: InterviewStatus,
+    organizationId: number | undefined,
+    userId: number,
+  ): Promise<Interview> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    if (user.role !== Role.CANDIDATE) {
+      throw new ForbiddenException(
+        'Seuls les candidats peuvent modifier le statut de leurs entretiens',
+      );
+    }
+
+    const interview = await this.interviewRepository.findOne({
+      where: { id },
+      relations: ['candidate'],
+    });
+
+    if (!interview) {
+      throw new NotFoundException('Entretien introuvable');
+    }
+
+    if (interview.candidate.email !== user.email) {
+      throw new ForbiddenException(
+        'Vous ne pouvez modifier que vos propres entretiens',
+      );
+    }
+
+    if (
+      status !== InterviewStatus.CONFIRMED &&
+      status !== InterviewStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        "Vous ne pouvez qu'accepter (confirmed) ou annuler (cancelled) un entretien",
+      );
+    }
+
+    if (
+      status === InterviewStatus.CONFIRMED &&
+      interview.status !== InterviewStatus.PLANNED
+    ) {
+      throw new BadRequestException(
+        `Vous ne pouvez accepter que les entretiens en statut "Planifié". Statut actuel: ${interview.status}`,
+      );
+    }
+
+    if (
+      status === InterviewStatus.CANCELLED &&
+      interview.status !== InterviewStatus.PLANNED &&
+      interview.status !== InterviewStatus.CONFIRMED
+    ) {
+      throw new BadRequestException(
+        `Vous ne pouvez annuler que les entretiens en statut "Planifié" ou "Confirmé". Statut actuel: ${interview.status}`,
+      );
+    }
+
+    const previousStatus = interview.status;
+    interview.status = status;
+    await this.interviewRepository.save(interview);
+
+    try {
+      const candidate = interview.candidate;
+      const participants: User[] = [];
+      if (interview.participantIds && interview.participantIds.length > 0) {
+        for (const participantId of interview.participantIds) {
+          const participant = await this.userRepository.findOne({
+            where: { id: participantId },
+          });
+          if (participant) {
+            participants.push(participant);
+          }
+        }
+      }
+
+      const userIds = participants.map((p) => p.id);
+
+      if (userIds.length > 0) {
+        const statusLabel =
+          status === InterviewStatus.CONFIRMED ? 'accepté' : 'refusé';
+        await this.notificationsService.createAndSend(
+          status === InterviewStatus.CONFIRMED
+            ? NotificationType.INTERVIEW_UPDATED
+            : NotificationType.INTERVIEW_CANCELLED,
+          `Entretien ${statusLabel} par le candidat`,
+          `L'entretien "${interview.title}" avec ${candidate.firstName} ${candidate.lastName} a été ${statusLabel} par le candidat.`,
+          interview.organizationId,
+          userIds,
+          {
+            candidateId: candidate.id,
+            interviewId: interview.id,
+            previousStatus,
+            newStatus: status,
+          },
+        );
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.warn(
+        `Erreur lors de l'envoi de la notification: ${errorMessage}`,
+      );
+    }
+
+    return interview;
   }
 
   async syncWithCalendar(

@@ -234,4 +234,28 @@ export class InterviewsController {
     const orgId = organizationId ? parseInt(organizationId, 10) : undefined;
     return this.interviewsService.getMyInterviews(orgId, req.user.id);
   }
+
+  @Patch('me/:id/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CANDIDATE)
+  @ApiOperation({ summary: "Accepter ou refuser un entretien (Candidat)" })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({ name: 'organizationId', type: Number, required: false })
+  @ApiBody({ schema: { properties: { status: { type: 'string', enum: ['confirmed', 'cancelled'] } } } })
+  @ApiResponse({ status: 200, description: 'Statut de l\'entretien modifié avec succès' })
+  @ApiResponse({ status: 403, description: 'Accès refusé' })
+  updateMyInterviewStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { status: InterviewStatus },
+    @Query('organizationId') organizationId: string | undefined,
+    @Request() req: RequestWithUser,
+  ) {
+    const orgId = organizationId ? parseInt(organizationId, 10) : undefined;
+    return this.interviewsService.updateMyInterviewStatus(
+      id,
+      body.status,
+      orgId,
+      req.user.id,
+    );
+  }
 }
