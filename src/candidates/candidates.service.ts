@@ -427,7 +427,20 @@ export class CandidatesService {
     }
 
     const role = userRole || userOrg.role;
-    await this.checkManagerAccess(candidate, userId, role);
+    
+    if (role === Role.CANDIDATE) {
+      const candidateUser = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+      
+      if (!candidateUser || candidateUser.email !== candidate.email) {
+        throw new ForbiddenException(
+          'Vous ne pouvez accéder qu\'à vos propres candidatures',
+        );
+      }
+    } else {
+      await this.checkManagerAccess(candidate, userId, role);
+    }
 
     return candidate;
   }
