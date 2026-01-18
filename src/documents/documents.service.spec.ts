@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DocumentsService } from './documents.service';
 import { Document } from './entities/document.entity';
+import { CandidateDocument } from '../candidates/entities/candidate-document.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { MinioService } from './services/minio.service';
@@ -37,6 +38,16 @@ describe('DocumentsService', () => {
           useValue: {
             findOne: jest.fn(),
             find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(CandidateDocument),
+          useValue: {
+            create: jest.fn(),
+            save: jest.fn(),
+            findOne: jest.fn(),
+            find: jest.fn(),
+            remove: jest.fn(),
           },
         },
         {
