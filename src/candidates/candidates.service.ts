@@ -531,12 +531,19 @@ export class CandidatesService {
         where: { email: candidate.email },
       });
 
+      this.logger.log(
+        `[UPDATE CANDIDATE] Recherche utilisateur pour email: ${candidate.email}, trouvé: ${candidateUser ? `Oui (ID: ${candidateUser.id})` : 'Non'}`,
+      );
+
       if (candidateUser) {
         if (managerAssigned && candidate.managerId) {
           const manager = await this.userRepository.findOne({
             where: { id: candidate.managerId },
           });
           const managerName = manager?.name || 'un manager';
+          this.logger.log(
+            `[UPDATE CANDIDATE] Envoi notification manager assigné au candidat ${candidateUser.id}`,
+          );
           await this.notificationsService.createAndSend(
             NotificationType.CANDIDATE_ASSIGNED,
             'Manager assigné à votre candidature',
@@ -551,6 +558,9 @@ export class CandidatesService {
         }
 
         if (notesAdded) {
+          this.logger.log(
+            `[UPDATE CANDIDATE] Envoi notification note ajoutée au candidat ${candidateUser.id}`,
+          );
           await this.notificationsService.createAndSend(
             NotificationType.STATE_CHANGED,
             'Note ajoutée à votre candidature',
@@ -562,12 +572,17 @@ export class CandidatesService {
             },
           );
         }
+      } else {
+        this.logger.warn(
+          `[UPDATE CANDIDATE] Aucun utilisateur trouvé pour l'email ${candidate.email}. Notification non envoyée.`,
+        );
       }
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : 'Erreur inconnue';
-      this.logger.warn(
+      this.logger.error(
         `Erreur lors de l'envoi de la notification au candidat: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
 
@@ -706,6 +721,9 @@ export class CandidatesService {
             [CandidateState.ANNULE]: 'Annulé',
           };
 
+          this.logger.log(
+            `[CHANGE STATE] Envoi notification changement de statut au candidat ${candidateUser.id} (${previousState} -> ${newState})`,
+          );
           await this.notificationsService.createAndSend(
             NotificationType.STATE_CHANGED,
             'Mise à jour de votre candidature',
@@ -717,6 +735,10 @@ export class CandidatesService {
               previousState,
               newState,
             },
+          );
+        } else {
+          this.logger.warn(
+            `[CHANGE STATE] Aucun utilisateur trouvé pour l'email ${candidate.email}. Notification non envoyée.`,
           );
         }
       }
@@ -1075,6 +1097,7 @@ export class CandidatesService {
 
     const candidate = await this.candidateRepository.findOne({
       where: { id: candidateId, organizationId },
+      relations: ['jobOffer'],
     });
 
     if (!candidate) {
@@ -1115,6 +1138,40 @@ export class CandidatesService {
             candidateId: candidate.id,
           },
         );
+
+        const candidateUser = await this.userRepository.findOne({
+          where: { email: candidate.email },
+        });
+
+        this.logger.log(
+          `[ASSIGN MANAGER] Recherche utilisateur pour email: ${candidate.email}, trouvé: ${candidateUser ? `Oui (ID: ${candidateUser.id})` : 'Non'}`,
+        );
+
+        if (candidateUser) {
+          const manager = await this.userRepository.findOne({
+            where: { id: managerId },
+          });
+          const managerName = manager?.name || 'un manager';
+          
+          this.logger.log(
+            `[ASSIGN MANAGER] Envoi notification manager assigné au candidat ${candidateUser.id}`,
+          );
+          await this.notificationsService.createAndSend(
+            NotificationType.CANDIDATE_ASSIGNED,
+            'Manager assigné à votre candidature',
+            `Un manager (${managerName}) a été assigné à votre candidature pour le poste ${candidate.jobOffer?.title || 'sans titre'}.`,
+            organizationId,
+            [candidateUser.id],
+            {
+              candidateId: candidate.id,
+              managerId: managerId,
+            },
+          );
+        } else {
+          this.logger.warn(
+            `[ASSIGN MANAGER] Aucun utilisateur trouvé pour l'email ${candidate.email}. Notification non envoyée.`,
+          );
+        }
       } catch (error) {
         this.logger.warn(
           `Erreur lors de l'envoi de la notification d'assignation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
