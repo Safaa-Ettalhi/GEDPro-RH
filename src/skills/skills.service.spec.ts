@@ -6,6 +6,7 @@ import { CandidateSkill } from './entities/candidate-skill.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Candidate } from '../candidates/entities/candidate.entity';
+import { Document } from '../documents/entities/document.entity';
 import { SkillsExtractionService } from './services/skills-extraction.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -53,6 +54,13 @@ describe('SkillsService', () => {
           provide: getRepositoryToken(Candidate),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Document),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
           },
         },
         {
