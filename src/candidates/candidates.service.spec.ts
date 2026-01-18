@@ -4,12 +4,14 @@ import { getModelToken } from '@nestjs/mongoose';
 import { CandidatesService } from './candidates.service';
 import { Candidate } from './entities/candidate.entity';
 import { CandidateDocument } from './entities/candidate-document.entity';
+import { ManagerEvaluation } from './entities/manager-evaluation.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { JobOffer } from '../forms/entities/job-offer.entity';
 import { Form } from '../forms/entities/form.entity';
 import { Document } from '../documents/entities/document.entity';
 import { User } from '../auth/entities/user.entity';
+import { Interview } from '../interviews/entities/interview.entity';
 import { CandidateStateHistory } from './schemas/candidate-state-history.schema';
 import { SkillsService } from '../skills/skills.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -53,6 +55,16 @@ describe('CandidatesService', () => {
           },
         },
         {
+          provide: getRepositoryToken(ManagerEvaluation),
+          useValue: {
+            create: jest.fn(),
+            save: jest.fn(),
+            findOne: jest.fn(),
+            find: jest.fn(),
+            remove: jest.fn(),
+          },
+        },
+        {
           provide: getRepositoryToken(Organization),
           useValue: {
             findOne: jest.fn(),
@@ -87,6 +99,13 @@ describe('CandidatesService', () => {
           provide: getRepositoryToken(User),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Interview),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
           },
         },
         {
