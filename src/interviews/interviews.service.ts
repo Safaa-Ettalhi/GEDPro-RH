@@ -268,6 +268,10 @@ export class InterviewsService {
         where: { email: candidate.email },
       });
 
+      this.logger.log(
+        `[CREATE INTERVIEW] Recherche utilisateur pour email: ${candidate.email}, trouvé: ${candidateUser ? `Oui (ID: ${candidateUser.id})` : 'Non'}`,
+      );
+
       if (candidateUser) {
         const interviewDate = new Date(savedInterview.date);
         const formattedDate = interviewDate.toLocaleDateString('fr-FR', {
@@ -277,6 +281,9 @@ export class InterviewsService {
           year: 'numeric',
         });
 
+        this.logger.log(
+          `[CREATE INTERVIEW] Envoi notification entretien planifié au candidat ${candidateUser.id}`,
+        );
         await this.notificationsService.createAndSend(
           NotificationType.INTERVIEW_PLANNED,
           'Entretien planifié',
@@ -287,6 +294,10 @@ export class InterviewsService {
             candidateId: candidate.id,
             interviewId: savedInterview.id,
           },
+        );
+      } else {
+        this.logger.warn(
+          `[CREATE INTERVIEW] Aucun utilisateur trouvé pour l'email ${candidate.email}. Notification non envoyée.`,
         );
       }
     } catch (error) {
@@ -459,6 +470,17 @@ export class InterviewsService {
         : interview.date,
     });
 
+    const previousDate = interview.date;
+    const previousStartTime = interview.startTime;
+    const dateChanged =
+      updateInterviewDto.date &&
+      (previousDate instanceof Date
+        ? previousDate.toISOString().split('T')[0]
+        : previousDate) !== updateInterviewDto.date;
+    const timeChanged =
+      updateInterviewDto.startTime &&
+      updateInterviewDto.startTime !== previousStartTime;
+
     await this.interviewRepository.save(interview);
 
     if (
@@ -512,6 +534,49 @@ export class InterviewsService {
       });
 
       if (candidate) {
+        if (dateChanged || timeChanged) {
+          const candidateUser = await this.userRepository.findOne({
+            where: { email: candidate.email },
+          });
+
+          this.logger.log(
+            `[UPDATE INTERVIEW] Recherche utilisateur pour email: ${candidate.email}, trouvé: ${candidateUser ? `Oui (ID: ${candidateUser.id})` : 'Non'}, dateChanged: ${dateChanged}, timeChanged: ${timeChanged}`,
+          );
+
+          if (candidateUser) {
+            const interviewDate =
+              interview.date instanceof Date
+                ? interview.date
+                : new Date(interview.date);
+            const formattedDate = interviewDate.toLocaleDateString('fr-FR', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            });
+
+            this.logger.log(
+              `[UPDATE INTERVIEW] Envoi notification date modifiée au candidat ${candidateUser.id}`,
+            );
+            await this.notificationsService.createAndSend(
+              NotificationType.INTERVIEW_UPDATED,
+              "Date de l'entretien modifiée",
+              `La date de votre entretien "${interview.title}" a été modifiée. Nouvelle date : ${formattedDate} à ${interview.startTime}${interview.location ? ` à ${interview.location}` : ''}${interview.meetingLink ? `. Lien de visioconférence : ${interview.meetingLink}` : ''}`,
+              organizationId,
+              [candidateUser.id],
+              {
+                candidateId: candidate.id,
+                interviewId: interview.id,
+              },
+            );
+          } else {
+            this.logger.warn(
+              `[UPDATE INTERVIEW] Aucun utilisateur trouvé pour l'email ${candidate.email}. Notification non envoyée.`,
+            );
+          }
+        }
+
+        // Notifier les participants
         const participants: User[] = [];
         const participantIds =
           updateInterviewDto.participantIds || interview.participantIds || [];
@@ -786,6 +851,45 @@ export class InterviewsService {
 
     try {
       const candidate = interview.candidate;
+
+      const candidateUser = await this.userRepository.findOne({
+        where: { email: candidate.email },
+      });
+
+      this.logger.log(
+        `[UPDATE INTERVIEW STATUS] Recherche utilisateur pour email: ${candidate.email}, trouvé: ${candidateUser ? `Oui (ID: ${candidateUser.id})` : 'Non'}`,
+      );
+
+      if (candidateUser) {
+        const statusLabel =
+          status === InterviewStatus.CONFIRMED ? 'accepté' : 'annulé';
+        const actionLabel =
+          status === InterviewStatus.CONFIRMED ? 'acceptation' : 'annulation';
+
+        this.logger.log(
+          `[UPDATE INTERVIEW STATUS] Envoi notification ${statusLabel} au candidat ${candidateUser.id}`,
+        );
+        await this.notificationsService.createAndSend(
+          status === InterviewStatus.CONFIRMED
+            ? NotificationType.INTERVIEW_UPDATED
+            : NotificationType.INTERVIEW_CANCELLED,
+          `Entretien ${statusLabel}`,
+          `Votre ${actionLabel} de l'entretien "${interview.title}" a été enregistrée avec succès.`,
+          interview.organizationId,
+          [candidateUser.id],
+          {
+            candidateId: candidate.id,
+            interviewId: interview.id,
+            previousStatus,
+            newStatus: status,
+          },
+        );
+      } else {
+        this.logger.warn(
+          `[UPDATE INTERVIEW STATUS] Aucun utilisateur trouvé pour l'email ${candidate.email}. Notification non envoyée.`,
+        );
+      }
+
       const participants: User[] = [];
       if (interview.participantIds && interview.participantIds.length > 0) {
         for (const participantId of interview.participantIds) {
@@ -798,7 +902,9 @@ export class InterviewsService {
         }
       }
 
-      const userIds = participants.map((p) => p.id);
+      const userIds = participants
+        .map((p) => p.id)
+        .filter((id): id is number => id !== undefined && id !== userId);
 
       if (userIds.length > 0) {
         const statusLabel =
