@@ -26,6 +26,7 @@ import { CreateFormFieldDto } from './dto/create-form-field.dto';
 import { CreateJobOfferDto } from './dto/create-job-offer.dto';
 import { UpdateJobOfferDto } from './dto/update-job-offer.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -52,6 +53,7 @@ export class FormsController {
   }
 
   @Get('job-offers/public')
+  @Public()
   @ApiOperation({
     summary: "Récupérer toutes les offres d'emploi actives (public)",
   })
