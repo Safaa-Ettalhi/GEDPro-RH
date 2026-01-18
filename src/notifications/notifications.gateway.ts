@@ -219,6 +219,7 @@ export class NotificationsGateway
         data.notificationId,
         client.userId,
         client.organizationId,
+        client.userRole,
       );
       return { success: true };
     } catch (error) {

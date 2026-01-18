@@ -107,18 +107,37 @@ export class NotificationsService {
     userRole: Role,
     organizationId: number,
   ): Promise<NotificationDto[]> {
-    const query: Record<string, any> = { organizationId, read: false };
+    const query: Record<string, unknown> = { read: false };
 
-    if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
-      query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
+    if (userRole === Role.CANDIDATE) {
+      query.userId = userId;
+      this.logger.log(
+        `[GET UNREAD NOTIFICATIONS] Candidat ${userId} - Récupération des notifications non lues (query: ${JSON.stringify(query)})`,
+      );
+    } else if (
+      userRole === Role.ADMIN ||
+      userRole === Role.RH ||
+      userRole === Role.MANAGER
+    ) {
+      query.organizationId = organizationId;
+    } else {
+      query.$or = [
+        { userId, organizationId },
+        { userId: { $exists: false }, organizationId },
+      ];
     }
 
     const notifications = await this.notificationModel
-
       .find(query)
       .sort({ createdAt: -1 })
       .limit(50)
       .exec();
+
+    if (userRole === Role.CANDIDATE) {
+      this.logger.log(
+        `[GET UNREAD NOTIFICATIONS] Candidat ${userId} - ${notifications.length} notification(s) non lue(s) trouvée(s)`,
+      );
+    }
 
     return notifications.map((n) => this.toDto(n));
   }
@@ -130,19 +149,33 @@ export class NotificationsService {
     limit = 50,
     skip = 0,
   ): Promise<{ notifications: NotificationDto[]; total: number }> {
-    const query: Record<string, any> = { organizationId };
+    let query: Record<string, unknown>;
 
-    if (userRole === Role.ADMIN || userRole === Role.RH || userRole === Role.MANAGER) {
+    if (userRole === Role.CANDIDATE) {
+      query = { userId };
+      this.logger.log(
+        `[GET ALL NOTIFICATIONS] Candidat ${userId} - Récupération de toutes les notifications (query: ${JSON.stringify(query)})`,
+      );
+    } else if (
+      userRole === Role.ADMIN ||
+      userRole === Role.RH ||
+      userRole === Role.MANAGER
+    ) {
+      query = { organizationId };
       this.logger.log(
         `Récupération de toutes les notifications de l'organisation ${organizationId} pour ${userRole}`,
       );
     } else {
-      query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
+      query = {
+        $or: [
+          { userId, organizationId },
+          { userId: { $exists: false }, organizationId },
+        ],
+      };
     }
 
     const [notifications, total] = await Promise.all([
       this.notificationModel
-
         .find(query)
         .sort({ createdAt: -1 })
         .limit(limit)
@@ -151,6 +184,24 @@ export class NotificationsService {
 
       this.notificationModel.countDocuments(query),
     ]);
+
+    if (userRole === Role.CANDIDATE) {
+      this.logger.log(
+        `[GET ALL NOTIFICATIONS] Candidat ${userId} - ${notifications.length} notification(s) trouvée(s) (total: ${total})`,
+      );
+      if (notifications.length > 0) {
+        this.logger.log(
+          `[GET ALL NOTIFICATIONS] Exemples de notifications: ${notifications
+            .slice(0, 3)
+            .map(
+              (n) =>
+                // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                `ID: ${n._id}, type: ${n.type}, userId: ${n.userId}, organizationId: ${n.organizationId}`,
+            )
+            .join('; ')}`,
+        );
+      }
+    }
 
     return {
       notifications: notifications.map((n) => this.toDto(n)),
@@ -162,15 +213,16 @@ export class NotificationsService {
     notificationId: string,
     userId: number,
     organizationId: number,
+    userRole?: Role,
   ): Promise<void> {
-    await this.notificationModel.updateOne(
-      {
-        _id: notificationId,
-        $or: [{ userId }, { userId: { $exists: false }, organizationId }],
-        organizationId,
-      },
-      { read: true },
-    );
+    const baseQuery: Record<string, unknown> = { _id: notificationId };
+    if (userRole === Role.CANDIDATE) {
+      baseQuery.userId = userId;
+    } else {
+      baseQuery.organizationId = organizationId;
+      baseQuery.$or = [{ userId }, { userId: { $exists: false } }];
+    }
+    await this.notificationModel.updateOne(baseQuery, { read: true });
   }
 
   async markAllAsRead(
@@ -178,11 +230,21 @@ export class NotificationsService {
     userRole: Role,
     organizationId: number,
   ): Promise<void> {
-    const query: Record<string, any> = { organizationId, read: false };
-    if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
-      query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
+    const query: Record<string, unknown> = { read: false };
+    if (userRole === Role.CANDIDATE) {
+      query.userId = userId;
+    } else if (
+      userRole === Role.ADMIN ||
+      userRole === Role.RH ||
+      userRole === Role.MANAGER
+    ) {
+      query.organizationId = organizationId;
+    } else {
+      query.$or = [
+        { userId, organizationId },
+        { userId: { $exists: false }, organizationId },
+      ];
     }
-
     await this.notificationModel.updateMany(query, { read: true });
   }
 
@@ -191,13 +253,31 @@ export class NotificationsService {
     userRole: Role,
     organizationId: number,
   ): Promise<number> {
-    const query: Record<string, any> = { organizationId, read: false };
-
-    if (userRole !== Role.ADMIN && userRole !== Role.RH && userRole !== Role.MANAGER) {
-      query.$or = [{ userId }, { userId: { $exists: false }, organizationId }];
+    const query: Record<string, unknown> = { read: false };
+    if (userRole === Role.CANDIDATE) {
+      query.userId = userId;
+      this.logger.log(
+        `[GET UNREAD COUNT] Candidat ${userId} - Comptage des notifications non lues (query: ${JSON.stringify(query)})`,
+      );
+    } else if (
+      userRole === Role.ADMIN ||
+      userRole === Role.RH ||
+      userRole === Role.MANAGER
+    ) {
+      query.organizationId = organizationId;
+    } else {
+      query.$or = [
+        { userId, organizationId },
+        { userId: { $exists: false }, organizationId },
+      ];
     }
-
-    return this.notificationModel.countDocuments(query);
+    const count = await this.notificationModel.countDocuments(query);
+    if (userRole === Role.CANDIDATE) {
+      this.logger.log(
+        `[GET UNREAD COUNT] Candidat ${userId} - ${count} notification(s) non lue(s)`,
+      );
+    }
+    return count;
   }
 
   private toDto(notification: NotificationDocument): NotificationDto {
